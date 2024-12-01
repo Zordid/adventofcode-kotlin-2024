@@ -2,7 +2,7 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 plugins {
-    kotlin("jvm") version "2.0.21"
+    kotlin("jvm") version "2.1.0"
     application
 }
 
@@ -49,7 +49,12 @@ tasks.withType<Test>().configureEach {
 tasks.withType<KotlinCompile>().configureEach {
     compilerOptions {
         jvmTarget = JvmTarget.JVM_17
-        freeCompilerArgs = listOf("-Xcontext-receivers", "-Xconsistent-data-class-copy-visibility")
+        freeCompilerArgs = listOf(
+            "-Xcontext-receivers",
+            "-Xconsistent-data-class-copy-visibility",
+            "-Xwhen-guards",
+            "-Xmulti-dollar-interpolation",
+        )
     }
 }
 
