@@ -1,7 +1,8 @@
 import kotlin.math.absoluteValue
+import kotlin.random.Random
 
 class Day01 : Day(1, 2024, "Historian Hysteria") {
-    private val data = mappedInput { it.extractAllIntegers() }
+    private val data = input.map { it.extractAllIntegers() }
 
     private val left = data.map { it[0] }
     private val right = data.map { it[1] }

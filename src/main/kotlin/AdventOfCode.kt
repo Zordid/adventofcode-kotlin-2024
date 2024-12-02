@@ -3,6 +3,9 @@
 import AoCWebInterface.Verdict
 import Part.P1
 import Part.P2
+import arrow.core.getOrElse
+import arrow.core.mapOrAccumulate
+import arrow.core.raise.catch
 import com.github.ajalt.mordant.rendering.TextColors.*
 import com.github.ajalt.mordant.rendering.TextStyles
 import com.github.ajalt.mordant.terminal.*
@@ -12,12 +15,12 @@ import java.awt.datatransfer.StringSelection
 import java.awt.datatransfer.Transferable
 import java.io.File
 import java.net.HttpURLConnection
-import java.net.URL
+import java.net.URI
 import java.net.URLEncoder
 import java.time.*
 import java.time.format.DateTimeFormatter
 import kotlin.reflect.KClass
-import kotlin.reflect.full.primaryConstructor
+import kotlin.system.exitProcess
 import kotlin.time.*
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.hours
@@ -146,8 +149,59 @@ class SolveDsl<T : Day>(private val dayClass: KClass<T>) {
  */
 var verbose = true
 
+class PuzzleInput(private val raw: List<String>) {
+    val lines: List<String> by lazy { raw.show("Raw") }
+    val grid: List<List<Char>> by lazy { raw.map { it.toList() }.show("Grid") }
+    val ints: List<Int> by lazy { raw.mapNotNull { it.extractFirstIntOrNull() }.show("Int") }
+    val longs: List<Long> by lazy { raw.mapNotNull { it.extractFirstLongOrNull() }.show("Long") }
+    val string: String by lazy { raw.joinToString("\n").also { listOf(it).show("One string") } }
+
+    fun <R> map(transform: MapContext.(String) -> R): List<R> =
+        raw.withIndex().mapOrAccumulate { (idx, line) ->
+            catch({ MapContext(idx).transform(line) }) { raise("Exception on line $idx: $it\n$line") }
+        }.getOrElse {
+            aocTerminal.danger(it.joinToString("\n")); exitProcess(1)
+        }.show("Mapped")
+
+    private fun <T : List<E>, E : Any?> T.show(type: String, maxLines: Int = 10): T {
+        verbose || return this
+
+        with(listOfNotNull(type.takeIf { it.isNotEmpty() }, "input data").joinToString(" ")) {
+            println("==== $this ${"=".repeat(50 - length - 6)}")
+        }
+        val idxWidth = lastIndex.toString().length
+        preview(maxLines) { idx, data ->
+            val original = raw.getOrNull(idx)
+            val s = when {
+                raw.size != this.size -> "$data"
+                original != "$data" -> "${original.restrictWidth(40, 40)} => $data"
+                else -> original
+            }
+            println("${idx.toString().padStart(idxWidth)}: ${s.restrictWidth(0, 160)}")
+        }
+        println("=".repeat(50))
+        return this
+    }
+
+    companion object {
+        private fun <T> List<T>.preview(maxLines: Int, f: (idx: Int, data: T) -> Unit) {
+            if (size <= maxLines) {
+                forEachIndexed(f)
+            } else {
+                val cut = (maxLines - 1) / 2
+                (0 until maxLines - cut - 1).forEach { f(it, this[it]!!) }
+                if (size > maxLines) println("...")
+                (lastIndex - cut + 1..lastIndex).forEach { f(it, this[it]!!) }
+            }
+        }
+    }
+
+}
+
+class MapContext(val lineNumber: Int)
+
 sealed class Day(
-    val fqd: FQD,
+    private val fqd: FQD,
     val title: String,
     private val terminal: Terminal,
 ) {
@@ -172,11 +226,10 @@ sealed class Day(
     }
 
     // all the different ways to get your input
-    val input: List<String> by lazy { rawInput.show("Raw") }
-    val inputAsGrid: List<List<Char>> by lazy { rawInput.map { it.toList() }.show("Grid") }
-    val inputAsInts: List<Int> by lazy { rawInput.map { it.extractFirstInt() }.show("Int") }
-    val inputAsLongs: List<Long> by lazy { rawInput.map { it.extractFirstLong() }.show("Long") }
-    val inputAsString: String by lazy { rawInput.joinToString("\n").also { listOf(it).show("One string") } }
+    val input: PuzzleInput by lazy {
+        header
+        PuzzleInput(rawInput)
+    }
 
     var groupDelimiter: (String) -> Boolean = String::isEmpty
     val inputAsGroups: List<List<String>> by lazy { groupedInput(groupDelimiter) }
@@ -354,8 +407,10 @@ class ParserContext(private val columnSeparator: Regex, private val line: String
     val longs: List<Long> by lazy { line.extractAllLongs() }
 }
 
-fun String.extractFirstInt() = toIntOrNull() ?: sequenceContainedIntegers().first()
-fun String.extractFirstLong() = toLongOrNull() ?: sequenceContainedLongs().first()
+fun String.extractFirstInt() = extractFirstIntOrNull() ?: error("does not contain any Int value")
+fun String.extractFirstIntOrNull() = toIntOrNull() ?: sequenceContainedIntegers().firstOrNull()
+fun String.extractFirstLong() = extractFirstLongOrNull() ?: error("does not contain any Long value")
+fun String.extractFirstLongOrNull() = toLongOrNull() ?: sequenceContainedLongs().firstOrNull()
 
 private val numberRegex = Regex("(-+)?\\d+")
 private val positiveNumberRegex = Regex("\\d+")
@@ -436,7 +491,13 @@ object AoC {
         val nowText = logFormat.format(now)
         val id = idFor(day, year, part)
         val text =
-            "$nowText - $id - submitted \"$answer\" - ${if (verdict is Verdict.Correct) "OK" else "FAIL with ${verdict::class.simpleName}"}"
+            "$nowText - $id - submitted \"$answer\" - ${
+                when (verdict) {
+                    is Verdict.Correct -> "OK"
+                    is Verdict.Incorrect -> "INCORRECT"
+                    else -> "FAIL with ${verdict::class.simpleName}"
+                }
+            }"
         appendSubmitLog(year, text)
         appendSubmitLog(year, verdict.text)
         if (verdict is Verdict.WithWait) {
@@ -506,7 +567,10 @@ object AoC {
                 val lock = relevant.last().substringAfter("until ")
                 LocalDateTime.from(DateTimeFormatter.ISO_DATE_TIME.parse(lock))
             } else null
-            PreviousSubmitted(locked, answers.map { it.first }, answers.map { it.second })
+            PreviousSubmitted(
+                locked,
+                answers.filter { it.second.endsWith("OK") || it.second.endsWith("INCORRECT") }.map { it.first },
+                answers.map { it.second })
         }
 
     private fun idFor(day: Int, year: Event, part: Part) =
@@ -593,7 +657,7 @@ class AoCWebInterface(private val sessionCookie: String?) {
     fun downloadInput(fqd: FQD): Result<List<String>> = runCatching {
         with(fqd) {
             println("Downloading puzzle for $fqd...")
-            val url = URL("${fqd.toUri()}/input")
+            val url = URI("${fqd.toUri()}/input").toURL()
             val cookies = mapOf("session" to sessionCookie)
 
             with(url.openConnection()) {
@@ -609,7 +673,7 @@ class AoCWebInterface(private val sessionCookie: String?) {
     fun submitAnswer(fqd: FQD, part: Part, answer: String): Verdict = runCatching {
         with(fqd) {
             println("Submitting answer for $fqd...")
-            val url = URL("${fqd.toUri()}/answer")
+            val url = URI("${fqd.toUri()}/answer").toURL()
             val cookies = mapOf("session" to sessionCookie)
             val payload = "level=$part&answer=${answer.urlEncode()}"
             with(url.openConnection() as HttpURLConnection) {
