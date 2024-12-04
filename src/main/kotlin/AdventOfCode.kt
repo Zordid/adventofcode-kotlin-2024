@@ -9,6 +9,7 @@ import arrow.core.raise.catch
 import com.github.ajalt.mordant.rendering.TextColors.*
 import com.github.ajalt.mordant.rendering.TextStyles
 import com.github.ajalt.mordant.terminal.*
+import utils.Grid
 import java.awt.Toolkit
 import java.awt.datatransfer.Clipboard
 import java.awt.datatransfer.StringSelection
@@ -151,7 +152,7 @@ var verbose = true
 
 class PuzzleInput(private val raw: List<String>) {
     val lines: List<String> by lazy { raw.show("Raw") }
-    val grid: List<List<Char>> by lazy { raw.map { it.toList() }.show("Grid") }
+    val grid: Grid<Char> by lazy { raw.map { it.toList() }.show("Grid") }
     val ints: List<Int> by lazy { raw.mapNotNull { it.extractFirstIntOrNull() }.show("Int") }
     val longs: List<Long> by lazy { raw.mapNotNull { it.extractFirstLongOrNull() }.show("Long") }
     val string: String by lazy { raw.joinToString("\n").also { listOf(it).show("One string") } }

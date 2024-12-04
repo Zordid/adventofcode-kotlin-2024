@@ -7,6 +7,7 @@ class DaysTest {
         test<Day01>(765748, 27732508)
         test<Day02>(220, 296)
         test<Day03>(189600467, 107069718)
+        test<Day04>(2500, 1933)
     }
 
 }

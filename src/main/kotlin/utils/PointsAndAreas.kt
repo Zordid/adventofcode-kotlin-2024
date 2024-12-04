@@ -48,9 +48,9 @@ fun Point.surroundingNeighbors(area: Area): List<Point> = Direction8.allVectors.
 
 val origin: Point = 0 to 0
 
-infix operator fun Point.plus(other: Point) = x + other.x to y + other.y
-infix operator fun Point.minus(other: Point) = x - other.x to y - other.y
-infix operator fun Point.times(factor: Int) = when (factor) {
+infix operator fun Point.plus(other: Point): Point = x + other.x to y + other.y
+infix operator fun Point.minus(other: Point): Point = x - other.x to y - other.y
+infix operator fun Point.times(factor: Int): Point = when (factor) {
     0 -> origin
     1 -> this
     else -> x * factor to y * factor
@@ -277,6 +277,8 @@ enum class Direction4(override val vector: Point, override val symbol: Char) : D
         inline fun forEach(action: (Direction) -> Unit) {
             all.forEach(action)
         }
+
+        inline fun <T> map(f: (p: Direction4) -> T) = all.map(f)
     }
 }
 
@@ -311,5 +313,7 @@ enum class Direction8(override val vector: Point, override val symbol: Char) : D
         inline fun forEach(action: (Direction) -> Unit) {
             all.forEach(action)
         }
+
+        inline fun <T> map(f: (p: Direction8) -> T) = all.map(f)
     }
 }

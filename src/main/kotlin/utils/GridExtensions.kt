@@ -34,6 +34,11 @@ val MapGrid<*>.areaOrNull: Area? get() = keys.boundingArea()
 val Grid<*>.lastPoint get() = width - 1 to height - 1
 
 /**
+ * Checks whether the given coordinate [p] is within the bounds of this [Grid]
+ */
+operator fun Grid<*>.contains(p: Point) = p.y in indices && p.x in 0 until width
+
+/**
  * Creates a new [Grid] with the specified [area], where each element is calculated by calling
  * the specified [init] function.
  */
