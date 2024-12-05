@@ -8,7 +8,7 @@ class DaysTest {
         test<Day02>(220, 296)
         test<Day03>(189600467, 107069718)
         test<Day04>(2500, 1933)
-        test<Day04>(6267, 5184)
+        test<Day05>(6267, 5184)
     }
 
 }
