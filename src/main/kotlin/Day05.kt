@@ -6,7 +6,7 @@ class Day05 : Day(5, 2024, "Print Queue") {
     private fun List<Int>.firstViolatedIndicesOrNull(): Pair<Int, Int>? =
         rules.asSequence()
             .map { (a, b) -> indexOf(a) to indexOf(b) }
-            .firstOrNull{ (idx1, idx2) -> idx2 in 0..<idx1 }
+            .firstOrNull { (idx1, idx2) -> idx2 in 0..<idx1 }
 
     override fun part1() =
         updates.filter { it.firstViolatedIndicesOrNull() == null }
