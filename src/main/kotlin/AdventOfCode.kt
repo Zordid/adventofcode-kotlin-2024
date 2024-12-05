@@ -10,6 +10,7 @@ import com.github.ajalt.mordant.rendering.TextColors.*
 import com.github.ajalt.mordant.rendering.TextStyles
 import com.github.ajalt.mordant.terminal.*
 import utils.Grid
+import utils.splitBy
 import java.awt.Toolkit
 import java.awt.datatransfer.Clipboard
 import java.awt.datatransfer.StringSelection
@@ -156,6 +157,11 @@ class PuzzleInput(private val raw: List<String>) {
     val ints: List<Int> by lazy { raw.mapNotNull { it.extractFirstIntOrNull() }.show("Int") }
     val longs: List<Long> by lazy { raw.mapNotNull { it.extractFirstLongOrNull() }.show("Long") }
     val string: String by lazy { raw.joinToString("\n").also { listOf(it).show("One string") } }
+    val sections: List<PuzzleInput> by lazy { raw.splitBy(delimiter = sectionDelimiter).map { PuzzleInput(it) } }
+
+    var sectionDelimiter: (String) -> Boolean = String::isEmpty
+
+    operator fun get(section: Int) = sections[section]
 
     fun <R> map(transform: MapContext.(String) -> R): List<R> =
         raw.withIndex().mapOrAccumulate { (idx, line) ->
@@ -230,26 +236,6 @@ sealed class Day(
     val input: PuzzleInput by lazy {
         header
         PuzzleInput(rawInput)
-    }
-
-    var groupDelimiter: (String) -> Boolean = String::isEmpty
-    val inputAsGroups: List<List<String>> by lazy { groupedInput(groupDelimiter) }
-
-    fun groupedInput(delimiter: (String) -> Boolean): List<List<String>> {
-        val result = mutableListOf<List<String>>()
-        var currentSubList: MutableList<String>? = null
-        for (line in rawInput) {
-            if (delimiter(line)) {
-                currentSubList = null
-            } else {
-                if (currentSubList == null) {
-                    currentSubList = mutableListOf(line)
-                    result += currentSubList
-                } else
-                    currentSubList.add(line)
-            }
-        }
-        return result.show("Chunked into ${result.size} chunks of")
     }
 
     fun <T> mappedInput(lbd: (String) -> T): List<T> =

@@ -1,6 +1,6 @@
 import kotlin.math.absoluteValue
 
-class Day02 : Day(2, 2024) {
+class Day02 : Day(2, 2024, "Red-Nosed Reports") {
 
     private val reports = input.map { it.extractAllIntegers() }
 

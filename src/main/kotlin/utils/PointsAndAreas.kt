@@ -301,8 +301,12 @@ enum class Direction8(override val vector: Point, override val symbol: Char) : D
         val allVectors = all.map { it.vector }
 
         val UP = NORTH
+        val UP_LEFT = NORTHWEST
+        val UP_RIGHT = NORTHEAST
         val RIGHT = EAST
         val DOWN = SOUTH
+        val DOWN_LEFT = SOUTHWEST
+        val DOWN_RIGHT = SOUTHEAST
         val LEFT = WEST
 
         fun ofVector(p1: Point, p2: Point) = ofVector(p2 - p1)

@@ -1,6 +1,7 @@
 import utils.*
+import utils.Direction8.*
 
-class Day04 : Day(4, 2024) {
+class Day04 : Day(4, 2024, "Ceres Search") {
 
     private val wordSearch = input.grid
 
@@ -17,13 +18,16 @@ class Day04 : Day(4, 2024) {
 
     override fun part2() =
         wordSearch.area.shrink(1).allPoints().count { x ->
-            (wordSearch[x] == 'A') &&
-                    ((wordSearch[x + Direction8.NORTHWEST] == 'M' && wordSearch[x + Direction8.SOUTHEAST] == 'S') ||
-                            (wordSearch[x + Direction8.NORTHWEST] == 'S' && wordSearch[x + Direction8.SOUTHEAST] == 'M')) && (
-                    (wordSearch[x + Direction8.NORTHEAST] == 'M' && wordSearch[x + Direction8.SOUTHWEST] == 'S') ||
-                            (wordSearch[x + Direction8.NORTHEAST] == 'S' && wordSearch[x + Direction8.SOUTHWEST] == 'M'))
+            (wordSearch[x] == 'A') && run {
+                val criss = setOf(wordSearch[x + NORTHWEST], wordSearch[x + SOUTHEAST])
+                val cross = setOf(wordSearch[x + NORTHEAST], wordSearch[x + SOUTHWEST])
+                criss == MS && cross == MS
+            }
         }
 
+    companion object {
+        private val MS = setOf('M', 'S')
+    }
 }
 
 fun main() {
