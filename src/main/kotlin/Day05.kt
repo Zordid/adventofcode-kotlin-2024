@@ -3,24 +3,24 @@ class Day05 : Day(5, 2024, "Print Queue") {
     private val rules = input[0].map { it.extractAllIntegers() }
     private val updates = input[1].map { it.extractAllIntegers() }
 
-    private fun List<Int>.firstViolatedRuleOrNull(): List<Int>? =
-        rules.firstOrNull { rule ->
-            rule.all { it in this } && this.indexOf(rule[0]) > this.indexOf(rule[1])
-        }
+    private fun List<Int>.firstViolatedIndicesOrNull(): Pair<Int, Int>? =
+        rules.asSequence()
+            .map { (a, b) -> indexOf(a) to indexOf(b) }
+            .firstOrNull{ (idx1, idx2) -> idx2 in 0..<idx1 }
 
     override fun part1() =
-        updates.filter { it.firstViolatedRuleOrNull() == null }
+        updates.filter { it.firstViolatedIndicesOrNull() == null }
             .sumOf { it[it.size / 2] }
 
     override fun part2() =
-        updates.filter { it.firstViolatedRuleOrNull() != null }.map {
-            var violation = it.firstViolatedRuleOrNull()
+        updates.filterNot { it.firstViolatedIndicesOrNull() == null }.map {
+            var violation = it.firstViolatedIndicesOrNull()
             val update = it.toMutableList()
             while (violation != null) {
-                val idx1 = update.indexOf(violation[0])
-                val idx2 = update.indexOf(violation[1])
-                update[idx1] = update[idx2].also { update[idx2] = update[idx1] }
-                violation = update.firstViolatedRuleOrNull()
+                with(violation) {
+                    update[first] = update[second].also { update[second] = update[first] }
+                }
+                violation = update.firstViolatedIndicesOrNull()
             }
             update
         }.sumOf { it[it.size / 2] }
