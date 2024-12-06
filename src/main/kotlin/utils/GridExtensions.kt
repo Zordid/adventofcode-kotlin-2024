@@ -136,19 +136,19 @@ fun <T> Grid<T>.fixed(default: T): Grid<T> {
 /**
  * Returns the first occurrences index coordinates or null if no such element can be found.
  */
-fun <T> Grid<T>.indexOfOrNull(e: T): Point? = searchIndices(e).firstOrNull()
+fun <T> Grid<T>.indexOfOrNull(e: T): Point? = search(e).firstOrNull()
 
 /**
  * Searches the grid from top most left point left to right, top to bottom for matching predicate.
  */
-inline fun <T> Grid<T>.searchIndices(crossinline predicate: (T) -> Boolean): Sequence<Point> =
+inline fun <T> Grid<T>.search(crossinline predicate: (T) -> Boolean): Sequence<Point> =
     area.allPoints().filter { predicate(this[it]) }
 
 /**
  * Searches the grid from top most left point left to right, top to bottom for matching elements.
  */
-fun <T> Grid<T>.searchIndices(vararg elements: T): Sequence<Point> =
-    searchIndices { it in elements }
+fun <T> Grid<T>.search(vararg elements: T): Sequence<Point> =
+    search { it in elements }
 
 fun Grid<*>.indices(): Sequence<Point> = sequence {
     for (y in this@indices.indices) {

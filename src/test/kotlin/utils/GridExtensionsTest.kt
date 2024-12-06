@@ -114,7 +114,7 @@ class GridExtensionsTest : FunSpec({
         g[origin] shouldBeExactly 1
         g[g.lastPoint] shouldBeExactly 9
 
-        g.searchIndices(2, 5, 8).toList() shouldBe listOf(1 to 0, 1 to 1, 1 to 2)
+        g.search(2, 5, 8).toList() shouldBe listOf(1 to 0, 1 to 1, 1 to 2)
 
         g.toMapGrid().size shouldBe 9
         val mapGrid = g.toMapGrid { it % 2 == 0 }

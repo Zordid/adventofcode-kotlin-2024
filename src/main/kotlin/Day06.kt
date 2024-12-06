@@ -4,19 +4,19 @@ import utils.*
 class Day06 : Day(6, 2024) {
 
     val p = input.grid
-    val obstacles = p.searchIndices('#').toList()
-    val start = p.searchIndices('^').single()
+    val obstacles = p.search('#').toSet()
+    val start = p.search('^').single()
     val area = p.area
 
-    override fun part1() = calcPath().also {
+    override fun part1() = calculatePath().also {
         println(p.formatted { p, value ->
             if (value == '.' && p in it) TextColors.brightRed("*") else value.toString()
         })
     }.size
 
-    override fun part2() = calcPath().count { pathLoops(it) }
+    override fun part2() = calculatePath().count { pathLoops(it) }
 
-    fun calcPath(): Collection<Point> {
+    private fun calculatePath(): Collection<Point> {
         val path = mutableSetOf<Point>()
         var pos = start
         var dir = Direction4.NORTH
@@ -31,19 +31,20 @@ class Day06 : Day(6, 2024) {
         return path
     }
 
-    fun pathLoops(nO: Point): Boolean {
-        val newObstacles = obstacles + nO
+    private fun pathLoops(newObstacleAt: Point): Boolean {
+        val newObstacles = (obstacles + newObstacleAt).toSet()
         val visited = mutableSetOf<Pair<Point, Direction4>>()
         var pos = start
         var d = Direction4.NORTH
         while (pos in area) {
-            if ((pos to d) in visited) return true
-            visited += pos to d
-            val next = pos + d
-            when (next in newObstacles) {
-                true -> d = d.right
-                else -> pos = next
-            }
+            if (!visited.add(pos to d)) return true
+            var next = pos + d
+            while (next !in newObstacles && next in area)
+                next += d
+            if (next !in area) return false
+            next -= d
+            pos = next
+            d = d.right
         }
         return false
     }
