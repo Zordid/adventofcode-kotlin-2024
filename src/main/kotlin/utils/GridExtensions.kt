@@ -15,6 +15,8 @@ typealias MutableGrid<T> = MutableList<MutableList<T>>
 typealias MapGrid<T> = Map<Point, T>
 typealias MutableMapGrid<T> = MutableMap<Point, T>
 
+fun String.toGrid(): Grid<Char> = split("\n").toGrid()
+fun List<String>.toGrid(): Grid<Char> = map { it.toList() }.asGrid()
 fun <T> List<List<T>>.asGrid(): Grid<T> = this
 
 val Grid<*>.width: Int get() = firstOrNull()?.size ?: 0
@@ -170,7 +172,17 @@ inline fun <T> Grid<T>.forArea(f: (p: Point) -> Unit) {
 fun <T> Grid<T>.row(row: Int): List<T> = this[row]
 fun <T> Grid<T>.column(col: Int): List<T> = List(height) { row -> this[row][col] }
 
-fun <T> Grid<T>.transposed(): Grid<T> = Grid(height, width) { (x, y) -> this[x][y] }
+fun <T> Grid<T>.transposed(): Grid<T> =
+    Grid(width = height, height = width) { (x, y) -> this[x][y] }
+
+fun <T> Grid<T>.rotate90(): Grid<T> =
+    Grid(width = height, height = width) { (x, y) -> this[height - 1 - x][y] }
+
+fun <T> Grid<T>.rotate180(): Grid<T> =
+    Grid(width = width, height = height) { (x, y) -> this[height - 1 - y][width - 1 - x] }
+
+fun <T> Grid<T>.rotate270(): Grid<T> =
+    Grid(width = height, height = width) { (x, y) -> this[x][width - 1 - y] }
 
 fun <T> Grid<T>.toMapGrid(vararg sparseElements: T): Map<Point, T> =
     toMapGrid { it in sparseElements }
@@ -190,7 +202,7 @@ fun <T> Grid<T>.formatted(
     reverseX: Boolean = false,
     reverseY: Boolean = false,
     showHeaders: Boolean = true,
-    transform: (Point, T) -> String = { _, value -> "$value" },
+    transform: (p: Point, value: T) -> String = { _, value -> "$value" },
 ): String {
     val area = restrictArea ?: this.area
     area.size > 0 || return "empty grid, nothing to show"
@@ -246,15 +258,22 @@ private fun Area.buildFormatted(
     val (colPrefix, rowPrefix: (Int) -> String) = if (showHeaders) {
         val maxColWidth = listOf(left, right).maxOf { "$it".length }
         val maxRowWidth = listOf(top, bottom).maxOf { "$it ".length }
+        val emptyRowHeader = " ".repeat(maxRowWidth)
         val colHeader = (0 until maxColWidth).joinToString(
             System.lineSeparator(),
             postfix = System.lineSeparator()
         ) { r ->
-            (area.left..area.right step 5).joinToString("    ", prefix = " ".repeat(maxRowWidth)) { col ->
-                "$col".padStart(maxColWidth)[r].toString()
+            colRange.joinToString("", prefix = " ".repeat(maxRowWidth)) { col ->
+                if (col % 5 == 0 || col == colRange.first || col == colRange.last)
+                    TextColors.gray("$col".padStart(maxColWidth)[r].toString())
+                else " "
             }
         }
-        colHeader to { r: Int -> "$r ".padStart(maxRowWidth) }
+        colHeader to { r: Int ->
+            if (r % 5 == 0 || r == rowRange.first || r == rowRange.last)
+                TextColors.gray("$r ".padStart(maxRowWidth))
+            else emptyRowHeader
+        }
     } else {
         "" to { _: Int -> "" }
     }

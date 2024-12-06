@@ -9,8 +9,7 @@ import arrow.core.raise.catch
 import com.github.ajalt.mordant.rendering.TextColors.*
 import com.github.ajalt.mordant.rendering.TextStyles
 import com.github.ajalt.mordant.terminal.*
-import utils.Grid
-import utils.splitBy
+import utils.*
 import java.awt.Toolkit
 import java.awt.datatransfer.Clipboard
 import java.awt.datatransfer.StringSelection
@@ -73,7 +72,7 @@ private fun dayNumber(day: KClass<out Day>) = day.simpleName.orEmpty().removePre
  */
 var globalTestData: String? = null
     get() = field?.also {
-        println("\n!!!! USING TEST DATA !!!!\n")
+        println(brightRed("!!!! USING TEST DATA !!!!\n"))
         field = null
     }
 
@@ -153,7 +152,7 @@ var verbose = true
 
 class PuzzleInput(private val raw: List<String>) {
     val lines: List<String> by lazy { raw.show("Raw") }
-    val grid: Grid<Char> by lazy { raw.map { it.toList() }.show("Grid") }
+    val grid: Grid<Char> by lazy { raw.map { it.toList() }.show() }
     val ints: List<Int> by lazy { raw.mapNotNull { it.extractFirstIntOrNull() }.show("Int") }
     val longs: List<Long> by lazy { raw.mapNotNull { it.extractFirstLongOrNull() }.show("Long") }
     val string: String by lazy { raw.joinToString("\n").also { listOf(it).show("One string") } }
@@ -169,6 +168,39 @@ class PuzzleInput(private val raw: List<String>) {
         }.getOrElse {
             aocTerminal.danger(it.joinToString("\n")); exitProcess(1)
         }.show("Mapped")
+
+    private fun Grid<Char>.show(): Grid<Char> {
+        verbose || return this
+
+        with("Grid data ($width x $height)") {
+            aocTerminal.println(TextStyles.bold("==== $this ${"=".repeat(50 - length - 6)}"))
+        }
+
+        val brightColors =
+            listOf(brightRed, brightMagenta, brightCyan, brightBlue, brightGreen, brightYellow)
+                .asInfiniteSequence().iterator()
+        val contentFreq = area.allPoints().groupingBy { this[it] }.eachCount()
+        val colors = contentFreq.mapValues { (c, count) ->
+            when (count) {
+                1 -> brightColors.next() + TextStyles.bold
+                contentFreq.values.max() -> gray
+                else -> null
+            }
+        }
+
+        println(
+            "Contains: ${
+                contentFreq.entries.sortedBy { contentFreq[it.key] }
+                    .map { (c, count) -> (colors[c]?.invoke("$c") ?: "$c") + ": $count" }
+            }"
+        )
+
+        println(formatted { _, v ->
+            colors[v]?.invoke("$v") ?: "$v"
+        })
+
+        return this
+    }
 
     private fun <T : List<E>, E : Any?> T.show(type: String, maxLines: Int = 10): T {
         verbose || return this

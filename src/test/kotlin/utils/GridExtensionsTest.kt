@@ -13,6 +13,93 @@ class GridExtensionsTest : FunSpec({
             val grid = Grid(3, 2) { it }
 
             grid.transposed() shouldBe Grid(2, 3) { it.second to it.first }
+
+            grid.transposed().transposed() shouldBe grid
+        }
+    }
+
+    val grid3x3 = """
+        123
+        456
+        789
+    """.trimIndent().toGrid()
+
+    context("rotate 90") {
+        test("for 3x3 grid") {
+            grid3x3.rotate90() shouldBe """
+                741
+                852
+                963
+            """.trimIndent().toGrid()
+
+            grid3x3.rotate90().rotate90().rotate90().rotate90() shouldBe grid3x3
+        }
+        test("works for non square grid") {
+            val grid = """
+                123
+                456
+            """.trimIndent().toGrid()
+
+            grid.rotate90() shouldBe """
+                41
+                52
+                63
+            """.trimIndent().toGrid()
+
+            grid.rotate90().rotate90().rotate90().rotate90() shouldBe grid
+        }
+    }
+
+    context("rotate 180") {
+        test("works for 3x3 grid") {
+            grid3x3.rotate180() shouldBe """
+                987
+                654
+                321
+            """.trimIndent().toGrid()
+
+            grid3x3.rotate180().rotate180() shouldBe grid3x3
+
+            grid3x3.rotate180() shouldBe grid3x3.rotate90().rotate90()
+        }
+
+        test("works for non square grid") {
+            val grid = """
+                123
+                456
+            """.trimIndent().toGrid()
+
+            grid.rotate180() shouldBe """
+                654
+                321
+            """.trimIndent().toGrid()
+        }
+    }
+
+    context("rotate 270") {
+        test("works for 3x3 grid") {
+            grid3x3.rotate270() shouldBe """
+                369
+                258
+                147
+            """.trimIndent().toGrid()
+
+            grid3x3.rotate270().rotate270().rotate270().rotate270() shouldBe grid3x3
+            grid3x3.rotate90().rotate270() shouldBe grid3x3
+            grid3x3.rotate270().rotate270() shouldBe grid3x3.rotate180()
+        }
+
+        test("works for non square grid") {
+            val grid = """
+                123
+                456
+            """.trimIndent().toGrid()
+
+            grid.rotate270() shouldBe """
+                36
+                25
+                14
+            """.trimIndent().toGrid()
         }
     }
 
@@ -33,10 +120,6 @@ class GridExtensionsTest : FunSpec({
         val mapGrid = g.toMapGrid { it % 2 == 0 }
         mapGrid.size shouldBe 5
 
-        val ng = Grid(mapGrid, 0)
-
-        println(g.formatted())
-        println(g.formatted())
 
         println(Grid(mapOf((2 to 2) to 9), 0).formatted())
 
