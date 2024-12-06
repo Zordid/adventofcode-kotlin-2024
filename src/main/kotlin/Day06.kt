@@ -1,17 +1,17 @@
-import com.github.ajalt.mordant.rendering.TextColors
+import com.github.ajalt.mordant.rendering.TextColors.brightRed
 import utils.*
 
 class Day06 : Day(6, 2024) {
 
-    val p = input.grid
-    val obstacles = p.search('#').toSet()
-    val start = p.search('^').single()
-    val area = p.area
+    val map = input.grid
+    val area = map.area
+    val obstacles = map.search('#').toSet()
+    val start = map.search('^').single()
 
     override fun part1() = calculatePath().also {
-        println(p.formatted { p, value ->
-            if (value == '.' && p in it) TextColors.brightRed("*") else value.toString()
-        })
+        log {
+            map.formatted { p, value -> if (value == '.' && p in it) brightRed("*") else "$value" }
+        }
     }.size
 
     override fun part2() = calculatePath().count { pathLoops(it) }
@@ -35,18 +35,17 @@ class Day06 : Day(6, 2024) {
         val newObstacles = (obstacles + newObstacleAt).toSet()
         val visited = mutableSetOf<Pair<Point, Direction4>>()
         var pos = start
-        var d = Direction4.NORTH
-        while (pos in area) {
-            if (!visited.add(pos to d)) return true
-            var next = pos + d
+        var dir = Direction4.NORTH
+        while (true) {
+            if (!visited.add(pos to dir)) return true
+            var next = pos + dir
             while (next !in newObstacles && next in area)
-                next += d
+                next += dir
             if (next !in area) return false
-            next -= d
+            next -= dir
             pos = next
-            d = d.right
+            dir = dir.right
         }
-        return false
     }
 
 }
