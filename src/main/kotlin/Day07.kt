@@ -1,99 +1,54 @@
-import utils.combinations
-import utils.permutations
+import java.math.BigInteger
 
-class Day07 : Day(7, 2024) {
+class Day07 : Day(7, 2024, "Bridge Repair") {
 
-    val equ = input.map { it.extractAllLongs() }
+    private val equations =
+        input.map { it.extractAllLongs().map(Long::toBigInteger) }
 
-    fun List<Long>.testEquation(): Boolean {
-        val test = first().toBigInteger()
-        val first = drop(1).first()
-        val rest = drop(2)
-        require(rest.isNotEmpty())
-
-        log { "$test: $first $rest" }
-
-        for (o in 0..<1.shl(rest.size)) {
-            var v = first.toBigInteger()
-            var tooBig = false
-
-            for (idx in rest.indices) {
-                if (v > test) {
-                    tooBig = true
-                    break
-                }
-                val tryAddition = o.and(1.shl(idx)) > 0
-                if (tryAddition)
-                    v += rest[idx].toBigInteger()
-                else
-                    v *= rest[idx].toBigInteger()
-            }
-
-            if (!tooBig && v == test) {
-                log { o }
-                return true
-            }
+    sealed interface Operator : (BigInteger, BigInteger) -> BigInteger {
+        data object Add : Operator {
+            override fun invoke(a: BigInteger, b: BigInteger): BigInteger =
+                a + b
         }
-        return false
-    }
 
-    fun <T> List<T>.countWith(size: Int): Sequence<List<T>> = sequence {
-        val alphabet = this@countWith
-        val initialValue = List(size) { alphabet[0] }
-        val nextValue = initialValue.toMutableList()
-        do {
-            yield(nextValue.toList())
-            for (p in size - 1 downTo 0) {
-                val idx = alphabet.indexOf(nextValue[p])
-                if (idx < alphabet.lastIndex) {
-                    nextValue[p] = alphabet[idx + 1]
-                    break
-                }
-                nextValue[p] = alphabet[0]
-            }
-        } while (nextValue != initialValue)
-    }
-
-    fun List<Long>.testEquation2(): Boolean {
-        val test = first().toBigInteger()
-        val first = drop(1).first()
-        val rest = drop(2)
-        require(rest.isNotEmpty())
-
-        log { "$test: $first $rest" }
-
-
-        listOf(0,1,2).countWith(rest.size).forEach { ops ->
-            var result = first.toBigInteger()
-            var tooBig = false
-
-            for ((op, value) in ops.zip(rest)) {
-                if (result > test) {
-                    tooBig = true
-                    break
-                }
-                when (op) {
-                    0 -> result *= value.toBigInteger()
-                    1 -> result += value.toBigInteger()
-                    2 -> result = "$result$value".toBigInteger()
-                    else -> error("op $op")
-                }
-            }
-
-            if (!tooBig && result == test) {
-                log { "Match with $ops" }
-                return true
-            }
+        data object Multiply : Operator {
+            override fun invoke(a: BigInteger, b: BigInteger): BigInteger =
+                a * b
         }
-        return false
+
+        data object Concat : Operator {
+            override fun invoke(a: BigInteger, b: BigInteger): BigInteger =
+                "$a$b".toBigInteger()
+        }
     }
 
-    override fun part1(): Any? {
-        return equ.filter { it.testEquation() }.sumOf { it.first().toBigInteger() }
-    }
+    override fun part1() =
+        solveUsing(Operator.Add, Operator.Multiply)
 
-    override fun part2(): Any? {
-        return equ.filter { it.testEquation2() }.sumOf { it.first().toBigInteger() }
+    override fun part2() =
+        solveUsing(Operator.Add, Operator.Multiply, Operator.Concat)
+
+    private fun solveUsing(vararg operators: Operator) =
+        equations.filter {
+            val (testValue, firstOperand) = it
+            testEquation(testValue, firstOperand, it.drop(2), operators.asList())
+        }.sumOf { it.first() }
+
+    private fun testEquation(
+        testValue: BigInteger,
+        value: BigInteger,
+        operands: List<BigInteger>,
+        operators: List<Operator>,
+    ): Boolean {
+        if (operands.isEmpty()) return testValue == value
+        if (value > testValue) return false
+
+        val next = operands.first()
+        val remainingOperands = operands.drop(1)
+
+        return operators.any { operation ->
+            testEquation(testValue, operation(value, next), remainingOperands, operators)
+        }
     }
 
 }
