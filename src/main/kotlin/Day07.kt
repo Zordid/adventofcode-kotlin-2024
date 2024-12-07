@@ -1,32 +1,25 @@
-import java.math.BigInteger
-
 class Day07 : Day(7, 2024, "Bridge Repair") {
 
-    private val equations =
-        input.map { it.extractAllLongs().map(Long::toBigInteger) }
-
-    sealed interface Operator : (BigInteger, BigInteger) -> BigInteger {
-        data object Add : Operator {
-            override fun invoke(a: BigInteger, b: BigInteger): BigInteger =
-                a + b
-        }
-
-        data object Multiply : Operator {
-            override fun invoke(a: BigInteger, b: BigInteger): BigInteger =
-                a * b
-        }
-
-        data object Concat : Operator {
-            override fun invoke(a: BigInteger, b: BigInteger): BigInteger =
-                "$a$b".toBigInteger()
-        }
-    }
+    private val equations = input.map { it.extractAllLongs() }
 
     override fun part1() =
-        solveUsing(Operator.Add, Operator.Multiply)
+        solveUsing(Add, Multiply)
 
     override fun part2() =
-        solveUsing(Operator.Add, Operator.Multiply, Operator.Concat)
+        solveUsing(Add, Multiply, Concat)
+
+    sealed interface Operator : (Long, Long) -> Long
+    data object Add : Operator {
+        override fun invoke(a: Long, b: Long) = a + b
+    }
+
+    data object Multiply : Operator {
+        override fun invoke(a: Long, b: Long) = a * b
+    }
+
+    data object Concat : Operator {
+        override fun invoke(a: Long, b: Long) = "$a$b".toLong()
+    }
 
     private fun solveUsing(vararg operators: Operator) =
         equations.filter {
@@ -35,9 +28,9 @@ class Day07 : Day(7, 2024, "Bridge Repair") {
         }.sumOf { it.first() }
 
     private fun testEquation(
-        testValue: BigInteger,
-        value: BigInteger,
-        operands: List<BigInteger>,
+        testValue: Long,
+        value: Long,
+        operands: List<Long>,
         operators: List<Operator>,
     ): Boolean {
         if (operands.isEmpty()) return testValue == value
