@@ -13,3 +13,4 @@
 *.dylib         binary
 *.sha256        binary
 *.exe           binary
+*.png           binary
