@@ -29,10 +29,10 @@ class Day07 : Day(7, 2024, "Bridge Repair") {
     }
 
     private fun solveUsing(vararg operators: Operator) =
-        equations.filter {
-            val (testValue, firstOperand) = it
-            val remainingOperands = it.drop(2)
-            testEquation(testValue, firstOperand, remainingOperands, operators.asList())
+        equations.filter { line ->
+            val testValue = line.first()
+            val operands = line.drop(1)
+            testEquation(testValue, 0L, operands, operators.asList())
         }.sumOf { it.first() }
 
     private fun testEquation(
