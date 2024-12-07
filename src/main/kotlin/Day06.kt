@@ -1,7 +1,7 @@
 import com.github.ajalt.mordant.rendering.TextColors.brightRed
 import utils.*
 
-class Day06 : Day(6, 2024) {
+open class Day06 : Day(6, 2024) {
 
     val map = input.grid
     val area = map.area
@@ -16,7 +16,7 @@ class Day06 : Day(6, 2024) {
 
     override fun part2() = calculatePath().count { pathLoops(it) }
 
-    private fun calculatePath(): Collection<Point> {
+    fun calculatePath(): Collection<Point> {
         val path = mutableSetOf<Point>()
         var pos = start
         var dir = Direction4.NORTH
