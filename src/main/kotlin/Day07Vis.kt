@@ -5,6 +5,7 @@ import guru.nidi.graphviz.model.Factory.mutNode
 import guru.nidi.graphviz.model.MutableNode
 import java.io.File
 
+/** This is a re-write of the original recursive function from [Day07] **/
 fun testEquation(
     testValue: Long,
     value: Long,
@@ -13,7 +14,6 @@ fun testEquation(
     parentNode: MutableNode? = null
 ): Boolean {
     if (operands.isEmpty()) return (testValue == value).also {
-        parentNode?.attrs()
         parentNode?.addLink(mutNode(if (it) "That's a match!" else "Nope, $value is too ${if (value > testValue) "big" else "small"}!"))
     }
     if (value > testValue) return false.also {
