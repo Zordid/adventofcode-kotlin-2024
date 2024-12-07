@@ -30,7 +30,6 @@ class Day07 : Day(7, 2024, "Bridge Repair") {
 
     private fun solveUsing(vararg operators: Operator) =
         equations.filter {
-
             val (testValue, firstOperand) = it
             val remainingOperands = it.drop(2)
             testEquation(testValue, firstOperand, remainingOperands, operators.asList())
