@@ -25,8 +25,6 @@ class Day07 : Day(7, 2024, "Bridge Repair") {
 
     data object Concat : Operator {
         override fun invoke(a: Long, b: Long): Long {
-            if (b < 10) return a * 10 + b
-
             var aShifted = a * 10
             var bRemain = b / 10
             while (bRemain > 0) {
