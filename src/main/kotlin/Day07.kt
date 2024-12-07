@@ -9,13 +9,12 @@ class Day07 : Day(7, 2024, "Bridge Repair") {
 
     private val equations = input.map { it.extractAllLongs() }.also { it.checkForAnyOverflow() }
 
-    override fun part1() =
-        solveUsing(Add, Multiply)
+    override fun part1() = solveUsing(Add, Multiply)
 
-    override fun part2() =
-        solveUsing(Add, Multiply, Concat)
+    override fun part2() = solveUsing(Add, Multiply, Concat)
 
     sealed interface Operator : (Long, Long) -> Long
+
     data object Add : Operator {
         override fun invoke(a: Long, b: Long) = a + b
     }
@@ -25,14 +24,24 @@ class Day07 : Day(7, 2024, "Bridge Repair") {
     }
 
     data object Concat : Operator {
-        override fun invoke(a: Long, b: Long) = "$a$b".toLong()
+        override fun invoke(a: Long, b: Long): Long {
+            if (b < 10) return a * 10 + b
+
+            var aShifted = a * 10
+            var bRemain = b / 10
+            while (bRemain > 0) {
+                aShifted *= 10
+                bRemain /= 10
+            }
+            return aShifted + b
+        }
     }
 
     private fun solveUsing(vararg operators: Operator) =
         equations.filter { line ->
             val testValue = line.first()
             val operands = line.drop(1)
-            testEquation(testValue, 0L, operands, operators.asList())
+            testEquation(testValue, operands.first(), operands.drop(1), operators.asList())
         }.sumOf { it.first() }
 
     private fun testEquation(
@@ -76,8 +85,6 @@ class Day07 : Day(7, 2024, "Bridge Repair") {
             }
         }
     }
-
-    // endregion
 
 }
 
