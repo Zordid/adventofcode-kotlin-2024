@@ -1,6 +1,13 @@
+import com.github.ajalt.mordant.rendering.TextColors
+import utils.permutations
+import utils.pow
+import kotlin.math.floor
+import kotlin.math.log10
+import kotlin.time.measureTime
+
 class Day07 : Day(7, 2024, "Bridge Repair") {
 
-    private val equations = input.map { it.extractAllLongs() }
+    private val equations = input.map { it.extractAllLongs() }.also { it.checkForAnyOverflow() }
 
     override fun part1() =
         solveUsing(Add, Multiply)
@@ -23,8 +30,10 @@ class Day07 : Day(7, 2024, "Bridge Repair") {
 
     private fun solveUsing(vararg operators: Operator) =
         equations.filter {
+
             val (testValue, firstOperand) = it
-            testEquation(testValue, firstOperand, it.drop(2), operators.asList())
+            val remainingOperands = it.drop(2)
+            testEquation(testValue, firstOperand, remainingOperands, operators.asList())
         }.sumOf { it.first() }
 
     private fun testEquation(
@@ -44,6 +53,33 @@ class Day07 : Day(7, 2024, "Bridge Repair") {
         }
     }
 
+    private fun profileOrder() {
+        listOf(Add, Multiply, Concat).permutations().map { it.toTypedArray() }.forEach { orderedOps ->
+            print(TextColors.green("Testing ${orderedOps.asList()}: "))
+            val repetitions = 100
+            val time = measureTime {
+                repeat(repetitions) {
+                    solveUsing(*orderedOps)
+                }
+            } / repetitions
+            println("took $time")
+        }
+    }
+
+    private fun List<List<Long>>.checkForAnyOverflow() {
+        forEach {
+            it.drop(1).let { sample ->
+                sample.reduce { acc, next ->
+                    listOf(Add, Multiply, Concat).maxOf { it(acc, next) }.also { result ->
+                        require(result >= acc)
+                    }
+                }
+            }
+        }
+    }
+
+    // endregion
+
 }
 
 fun main() {
@@ -61,3 +97,4 @@ fun main() {
         """.trimIndent() part1 3749 part2 11387
     }
 }
+
