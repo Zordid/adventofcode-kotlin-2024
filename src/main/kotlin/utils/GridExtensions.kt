@@ -134,6 +134,15 @@ fun <T> Grid<T>.fixed(default: T): Grid<T> {
 }
 
 /**
+ * Returns a sequence of all position/element pairs.
+ */
+fun <T> Grid<T>.allPointsAndValues(): Sequence<Pair<Point, T>> = sequence {
+    forArea {
+        yield(it to get(it))
+    }
+}
+
+/**
  * Returns the first occurrences index coordinates or null if no such element can be found.
  */
 fun <T> Grid<T>.indexOfOrNull(e: T): Point? = search(e).firstOrNull()
