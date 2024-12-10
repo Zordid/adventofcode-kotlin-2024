@@ -6,6 +6,7 @@ import Part.P2
 import arrow.core.getOrElse
 import arrow.core.mapOrAccumulate
 import arrow.core.raise.catch
+import com.github.ajalt.mordant.rendering.TextColors
 import com.github.ajalt.mordant.rendering.TextColors.*
 import com.github.ajalt.mordant.rendering.TextStyles
 import com.github.ajalt.mordant.terminal.*
@@ -180,13 +181,19 @@ class PuzzleInput(private val raw: List<String>) {
             listOf(brightRed, brightMagenta, brightCyan, brightBlue, brightGreen, brightYellow)
                 .asInfiniteSequence().iterator()
         val contentFreq = area.allPoints().groupingBy { this[it] }.eachCount()
-        val colors = contentFreq.mapValues { (c, count) ->
-            when (count) {
-                1 -> brightColors.next() + TextStyles.bold
-                contentFreq.values.max() -> gray
-                else -> null
+
+        val isTopoMap = contentFreq.keys.all { it in " .0123456789" }
+        val colors =
+            contentFreq.mapValues { (c, count) ->
+                if (isTopoMap)
+                    if (c in '0'..'9') TextColors.gray(1.0 - (9 - c.digitToInt()) * 0.05) else gray
+                else
+                    when (count) {
+                        1 -> brightColors.next() + TextStyles.bold
+                        contentFreq.values.max() -> gray
+                        else -> null
+                    }
             }
-        }
 
         println(
             "Contains: ${
