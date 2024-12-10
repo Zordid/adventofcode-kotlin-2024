@@ -28,8 +28,8 @@ dependencies {
     implementation("guru.nidi:graphviz-kotlin:0.18.1")
     implementation("org.slf4j:slf4j-nop:2.0.16")
     //implementation("ch.qos.logback", "logback-classic", "1.2.3")
-    implementation("io.arrow-kt:arrow-core:1.2.4")
-    implementation("io.arrow-kt:arrow-fx-coroutines:1.2.4")
+    implementation("io.arrow-kt:arrow-core:2.0.0")
+    implementation("io.arrow-kt:arrow-fx-coroutines:2.0.0")
 
     //implementation("org.choco-solver:choco:4.10.14")
 
