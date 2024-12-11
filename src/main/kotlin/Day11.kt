@@ -7,7 +7,7 @@ class Day11 : Day(11, 2024, "Plutonian Pebbles") {
     override fun part2() = stones.sumOf { blinky(75, it) }
 
     private fun blinky(blinks: Int, stone: Long): Long {
-        if (blinks <= 0) return 1L
+        if (blinks == 0) return 1L
         cache[stone to blinks]?.let { return it }
 
         val s = stone.toString()
@@ -27,8 +27,6 @@ class Day11 : Day(11, 2024, "Plutonian Pebbles") {
 
 fun main() {
     solve<Day11> {
-        """
-            125 17
-        """.trimIndent() part1 55312
+        "125 17" part1 55312
     }
 }
