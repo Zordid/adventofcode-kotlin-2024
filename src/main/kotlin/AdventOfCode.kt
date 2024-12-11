@@ -154,8 +154,12 @@ var verbose = true
 class PuzzleInput(private val raw: List<String>) {
     val lines: List<String> by lazy { raw.show("Raw") }
     val grid: Grid<Char> by lazy { raw.map { it.toList() }.show() }
-    val ints: List<Int> by lazy { raw.mapNotNull { it.extractFirstIntOrNull() }.show("Int") }
-    val longs: List<Long> by lazy { raw.mapNotNull { it.extractFirstLongOrNull() }.show("Long") }
+    val ints: List<Int> by lazy {
+        raw.singleOrNull()?.extractAllIntegers() ?: raw.mapNotNull { it.extractFirstIntOrNull() }.show("Int")
+    }
+    val longs: List<Long> by lazy {
+        raw.singleOrNull()?.extractAllLongs() ?: raw.mapNotNull { it.extractFirstLongOrNull() }.show("Long")
+    }
     val string: String by lazy { raw.joinToString("\n").also { listOf(it).show("One string") } }
     val sections: List<PuzzleInput> by lazy { raw.splitBy(delimiter = sectionDelimiter).map { PuzzleInput(it) } }
 
