@@ -11,6 +11,7 @@ version = "1.0-SNAPSHOT"
 
 val kotest = "5.9.1"
 val junit = "5.11.3"
+val arrow = "2.0.0"
 
 repositories {
     mavenCentral()
@@ -28,8 +29,8 @@ dependencies {
     implementation("guru.nidi:graphviz-kotlin:0.18.1")
     implementation("org.slf4j:slf4j-nop:2.0.16")
     //implementation("ch.qos.logback", "logback-classic", "1.2.3")
-    implementation("io.arrow-kt:arrow-core:2.0.0")
-    implementation("io.arrow-kt:arrow-fx-coroutines:2.0.0")
+    implementation("io.arrow-kt:arrow-core:$arrow")
+    implementation("io.arrow-kt:arrow-fx-coroutines:$arrow")
 
     //implementation("org.choco-solver:choco:4.10.14")
 

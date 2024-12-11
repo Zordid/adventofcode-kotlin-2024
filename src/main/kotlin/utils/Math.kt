@@ -5,6 +5,35 @@ package utils
 import kotlin.math.absoluteValue
 import kotlin.math.pow
 
+fun powerOf10(n: Int): Int = powersOf10[n]
+fun powerOf10L(n: Int): Long = powersOf10L[n]
+
+private val powersOf10: Array<Int> =
+    arrayOf(1, 10, 100, 1_000, 10_000, 100_000, 1_000_000, 10_000_000, 100_000_000, 1_000_000_000)
+
+private val powersOf10L: Array<Long> =
+    arrayOf(
+        1,
+        10,
+        100,
+        1_000,
+        10_000,
+        100_000,
+        1_000_000,
+        10_000_000,
+        100_000_000,
+        1_000_000_000,
+        10_000_000_000,
+        100_000_000_000,
+        1_000_000_000_000,
+        10_000_000_000_000,
+        100_000_000_000_000,
+        1_000_000_000_000_000,
+        10_000_000_000_000_000,
+        100_000_000_000_000_000,
+        1_000_000_000_000_000_000,
+    )
+
 /**
  * Euclid's algorithm for finding the greatest common divisor of a and b.
  */

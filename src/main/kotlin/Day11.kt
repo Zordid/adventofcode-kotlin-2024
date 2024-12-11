@@ -1,25 +1,29 @@
+import utils.powerOf10
+
 class Day11 : Day(11, 2024, "Plutonian Pebbles") {
 
     val stones = input.longs
 
-    override fun part1() = stones.sumOf { blinky(25, it) }
+    override fun part1() = stones.sumOf { blinky(it, 25) }
 
-    override fun part2() = stones.sumOf { blinky(75, it) }
+    override fun part2() = stones.sumOf { blinky(it, 75) }
 
-    private fun blinky(blinks: Int, stone: Long): Long {
-        if (blinks == 0) return 1L
-        cache[stone to blinks]?.let { return it }
+    private fun blinky(stone: Long, blinks: Int): Long =
+        cache.getOrPut(stone to blinks) {
+            if (blinks == 0) return@getOrPut 1L
 
-        val s = stone.toString()
-        return when {
-            stone == 0L -> blinky(blinks - 1, 1)
-            s.length % 2 == 0 ->
-                blinky(blinks - 1, s.take(s.length / 2).toLong()) +
-                        blinky(blinks - 1, s.drop(s.length / 2).toLong())
+            val s = stone.toString()
+            when {
+                stone == 0L -> blinky(1, blinks - 1)
+                s.length % 2 == 0 -> {
+                    val factor = powerOf10(s.length / 2)
+                    blinky(stone / factor, blinks - 1) +
+                            blinky(stone % factor, blinks - 1)
+                }
 
-            else -> blinky(blinks - 1, stone * 2024)
-        }.also { cache[stone to blinks] = it }
-    }
+                else -> blinky(stone * 2024, blinks - 1)
+            }
+        }
 
     private val cache = mutableMapOf<Pair<Long, Int>, Long>()
 
