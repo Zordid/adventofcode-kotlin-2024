@@ -4,9 +4,9 @@ class Day12 : Day(12, 2024, "Garden Groups") {
 
     val g = input.grid
 
-    override fun part1() = findRegions().sumOf { it.price(g) }
+    override fun part1() = findRegions().sumOf { it.area * it.perimeter }
 
-    override fun part2() = findRegions().sumOf { it.priceBulk(g) }
+    override fun part2() = findRegions().sumOf { it.area * it.fences }
 
     fun findRegions(): Collection<Region> {
         val regions = mutableListOf<Region>()
@@ -36,16 +36,11 @@ class Day12 : Day(12, 2024, "Garden Groups") {
 
     data class Region(val type: Char, val contains: Set<Point>, val border: Set<Point>) {
         val area get() = contains.size
-
-        fun price(g: Grid<Char>): Int {
-            val perimeter = border.sumOf { p -> p.directNeighbors().count { g.getOrNull(it) != type } }
-            log { "A region of $type with area $area and peri $perimeter: ${area * perimeter}" }
-            return area * perimeter
-        }
-
-        fun priceBulk(g: Grid<Char>): Int {
-            val fences = Direction4.all.sumOf { fenceFacing ->
-                val requireFence = border.filter { g.getOrNull(it + fenceFacing) != type }.toMutableSet()
+        val perimeter
+            get() = border.sumOf { p -> p.directNeighbors().count { it !in contains } }
+        val fences
+            get() = Direction4.all.sumOf { fenceFacing ->
+                val requireFence = border.filter { (it + fenceFacing) !in contains }.toMutableSet()
 
                 var fencesNeeded = 0
                 while (requireFence.isNotEmpty()) {
@@ -58,14 +53,10 @@ class Day12 : Day(12, 2024, "Garden Groups") {
                         requireFence -= growFence
                     } while (growFence.isNotEmpty())
 
-                    fencesNeeded += 1
+                    fencesNeeded++
                 }
                 fencesNeeded
             }
-
-            log { "A region of $type with area $area and fence $fences: ${area * fences}" }
-            return area * fences
-        }
     }
 
 }
