@@ -21,46 +21,46 @@ class Day12 : Day(12, 2024, "Garden Groups") {
         val type = g[p]
         val q = dequeOf(p)
         val region = mutableSetOf<Point>()
-        val outer = mutableSetOf<Point>()
+        val border = mutableSetOf<Point>()
         while (q.isNotEmpty()) {
             val here = q.removeFirst()
+            val neighborsIn = here.directNeighbors().filter { g.getOrNull(it) == type }
 
-            val (neighborsIn, neighborsOut) = here.directNeighbors().partition { g.getOrNull(it) == type }
             region += here
-            if (neighborsOut.isNotEmpty()) outer += here
+            if (neighborsIn.size < 4) border += here
 
             q += neighborsIn.filter { it !in region && it !in q }
         }
-        return Region(type, region, outer)
+        return Region(type, region, border)
     }
 
     data class Region(val type: Char, val contains: Set<Point>, val border: Set<Point>) {
+        val area get() = contains.size
 
         fun price(g: Grid<Char>): Int {
-            val area = contains.size
             val perimeter = border.sumOf { p -> p.directNeighbors().count { g.getOrNull(it) != type } }
             log { "A region of $type with area $area and peri $perimeter: ${area * perimeter}" }
             return area * perimeter
         }
+
         fun priceBulk(g: Grid<Char>): Int {
-            val area = contains.size
-            val fences = Direction4.all.sumOf { dir ->
-                var need = 0
-                val allThatNeedFencing = border.filter { g.getOrNull(it + dir) != type }.toMutableSet()
-                while (allThatNeedFencing.isNotEmpty()) {
-                    val p = allThatNeedFencing.first().also { allThatNeedFencing -= it }
-                    val inLine = mutableSetOf(p)
+            val fences = Direction4.all.sumOf { fenceFacing ->
+                val requireFence = border.filter { g.getOrNull(it + fenceFacing) != type }.toMutableSet()
 
-                    var include = allThatNeedFencing.firstOrNull { it.directNeighbors().any { it in inLine } }
-                    while (include != null) {
-                        inLine += include
-                        allThatNeedFencing -= include
-                        include = allThatNeedFencing.firstOrNull { it.directNeighbors().any { it in inLine } }
-                    }
+                var fencesNeeded = 0
+                while (requireFence.isNotEmpty()) {
+                    val p = requireFence.removeOne()
+                    val sameFence = mutableSetOf(p)
 
-                    need += 1
+                    do {
+                        val growFence = requireFence.filter { it.directNeighbors().any { it in sameFence } }
+                        sameFence += growFence
+                        requireFence -= growFence
+                    } while (growFence.isNotEmpty())
+
+                    fencesNeeded += 1
                 }
-                need
+                fencesNeeded
             }
 
             log { "A region of $type with area $area and fence $fences: ${area * fences}" }
@@ -69,6 +69,9 @@ class Day12 : Day(12, 2024, "Garden Groups") {
     }
 
 }
+
+fun <T> MutableSet<T>.removeOne(): T =
+    first().also { remove(it) }
 
 fun main() {
     solve<Day12> {

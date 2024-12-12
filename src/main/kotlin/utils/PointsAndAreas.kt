@@ -38,12 +38,27 @@ fun Point.leftWhile(steps: Int = 1, predicate: (Point) -> Boolean) = walkWhile(D
 
 fun Point.neighbor(direction: Direction, steps: Int = 1) = this + (direction.vector * steps)
 
+infix fun Point.isDirectNeighborOf(other: Point): Boolean =
+    (this - other).manhattanDistance == 1
+
 /**
  * calculates the list of the four direct neighbors of the point.
  */
 fun Point.directNeighbors(): List<Point> = Direction4.allVectors.map { this + it }
+
+/**
+ * calculates the list of the four direct neighbors of the point, but removes the ones outside the given [area].
+ */
 fun Point.directNeighbors(area: Area): List<Point> = Direction4.allVectors.map { this + it }.filter { it in area }
+
+/**
+ * calculates the list of the eight direct neighbors of the point.
+ */
 fun Point.surroundingNeighbors(): List<Point> = Direction8.allVectors.map { this + it }
+
+/**
+ * calculates the list of the eight direct neighbors of the point, but removes the ones outside the given [area].
+ */
 fun Point.surroundingNeighbors(area: Area): List<Point> = Direction8.allVectors.map { this + it }.filter { it in area }
 
 val origin: Point = 0 to 0
