@@ -40,6 +40,15 @@ val Grid<*>.lastPoint get() = width - 1 to height - 1
  */
 operator fun Grid<*>.contains(p: Point) = p.y in indices && p.x in 0 until width
 
+operator fun <T> Grid<T>.iterator(): Iterator<Pair<Point, T>> = iterator {
+    for (row in indices) {
+        val r = get(row)
+        for (col in r.indices) {
+            yield((col to row) to r[col])
+        }
+    }
+}
+
 /**
  * Creates a new [Grid] with the specified [area], where each element is calculated by calling
  * the specified [init] function.
