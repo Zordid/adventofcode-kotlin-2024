@@ -214,62 +214,60 @@ fun <T, R> Grid<T>.mapValues(transform: (T) -> R): Grid<R> =
 fun <T, R> Grid<T>.mapValuesIndexed(transform: (Point, T) -> R): Grid<R> =
     mapIndexed { y, r -> r.mapIndexed { x, v -> transform(x to y, v) } }
 
-fun <T> Grid<T>.formatted(
-    restrictArea: Area? = null,
-    filler: String = "?",
+fun <T> Grid<T>.plot(
+    area: Area? = this.area,
     reverseX: Boolean = false,
     reverseY: Boolean = false,
     showHeaders: Boolean = true,
-    transform: (p: Point, value: T) -> String = { _, value -> "$value" },
-): String {
-    val area = restrictArea ?: this.area
-    area.size > 0 || return "empty grid, nothing to show"
-    return area.buildFormatted(reverseX, reverseY, showHeaders) element@{ col, row ->
-        val value = this[row].getOrElse(col) { return@element filler }
-        transform(col to row, value)
+    highlight: (Point) -> Boolean = { false },
+    broken: String = (TextColors.white on TextColors.red)("?"),
+    filler: String = " ",
+    transform: (p: Point, value: T) -> String? = { _, value -> value?.toString() },
+): String =
+    area.plot(reverseX, reverseY, showHeaders, highlight = highlight) { point ->
+        transform(point, this[point.y].getOrElse(point.x) { return@plot broken }) ?: filler
     }
-}
 
-fun highlight(highlight: Iterable<Point>, style: TextStyle = TextColors.brightRed): (Point, Any?) -> String = { p, v ->
-    if (p in highlight) style("$v") else "$v"
-}
+fun highlight(highlight: Collection<Point>, style: TextStyle = TextColors.brightRed): (Point, Any?) -> String =
+    { p, v ->
+        if (p in highlight) style("$v") else "$v"
+    }
 
-fun <T> MapGrid<T>.formatted(
-    area: Area? = null,
-    filler: Any = ' ',
+fun <T> MapGrid<T>.plot(
+    area: Area? = keys.boundingArea(),
     reverseX: Boolean = false,
     reverseY: Boolean = false,
     showHeaders: Boolean = true,
-    transform: (Point, T?) -> String? = { _, value -> "$value" },
-): String {
-    val relevantArea = area ?: keys.boundingArea() ?: return "empty map, nothing to show"
-    val default = filler.toString()
-    return relevantArea.buildFormatted(reverseX, reverseY, showHeaders) { col, row ->
-        val point = col to row
-        val value = get(point)
-        transform(col to row, value) ?: default
+    highlight: (Point) -> Boolean = { false },
+    filler: (Point) -> String = { " " },
+    transform: (Point, T) -> String = { _, value -> value.toString() },
+): String =
+    area.plot(reverseX, reverseY, showHeaders, highlight = highlight) { point ->
+        transform(point, getOrElse(point) { return@plot filler(point) })
     }
-}
 
 fun Iterable<Point>.plot(
-    restrictArea: Area? = null, on: String = "#", off: String = " ",
+    area: Area? = this.boundingArea(),
     reverseX: Boolean = false,
     reverseY: Boolean = false,
     showHeaders: Boolean = true,
-): String {
-    val area = restrictArea ?: boundingArea() ?: return "this is an empty void"
-    return area.buildFormatted(reverseX, reverseY, showHeaders) { col, row ->
-        if ((col to row) in this) on else off
+    highlight: Collection<Point> = null ?: emptyList(),
+    filler: String = " ",
+    paint: (Point) -> String = { "#" }
+): String =
+    area.plot(reverseX, reverseY, showHeaders, highlight = { it in highlight.toSet() }) { point ->
+        if (point in this) paint(point) else filler
     }
-}
 
-private fun Area.buildFormatted(
+inline fun Area?.plot(
     reverseX: Boolean = false,
     reverseY: Boolean = false,
     showHeaders: Boolean = true,
-    block: (col: Int, row: Int) -> CharSequence,
+    crossinline highlight: (Point) -> Boolean = { false },
+    crossinline paint: (Point) -> Any,
 ): String {
     val area = this
+    if (area == null || area.isEmpty()) return "empty area, no plot"
     val colRange = if (reverseX) area.right downTo area.left else area.left..area.right
     val rowRange = if (reverseY) area.bottom downTo area.top else area.top..area.bottom
 
@@ -297,7 +295,10 @@ private fun Area.buildFormatted(
     }
     return rowRange.joinToString(System.lineSeparator(), prefix = colPrefix, postfix = System.lineSeparator()) { row ->
         colRange.joinToString("", prefix = rowPrefix(row)) element@{ col ->
-            block(col, row)
+            val point = col to row
+            paint(point).toString().let {
+                if (highlight(point)) TextColors.red(it) else it
+            }
         }
     }
 }

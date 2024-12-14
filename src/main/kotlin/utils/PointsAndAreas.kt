@@ -2,10 +2,7 @@
 
 package utils
 
-import kotlin.math.absoluteValue
-import kotlin.math.max
-import kotlin.math.min
-import kotlin.math.sign
+import kotlin.math.*
 
 typealias Point = Pair<Int, Int>
 typealias Area = Pair<Point, Point>
@@ -18,9 +15,13 @@ val Point.manhattanDistance: Int
 
 infix fun Point.manhattanDistanceTo(other: Point) = (this - other).manhattanDistance
 
+val Point.right: Point get() = x + 1 to y
 fun Point.right(steps: Int = 1) = x + steps to y
+val Point.left: Point get() = x - 1 to y
 fun Point.left(steps: Int = 1) = x - steps to y
+val Point.up: Point get() = x to y - 1
 fun Point.up(steps: Int = 1) = x to y - steps
+val Point.down: Point get() = x to y + 1
 fun Point.down(steps: Int = 1) = x to y + steps
 
 fun Point.walkWhile(direction: Direction, steps: Int = 1, predicate: (Point) -> Boolean): Point {
@@ -62,6 +63,7 @@ fun Point.surroundingNeighbors(): List<Point> = Direction8.allVectors.map { this
 fun Point.surroundingNeighbors(area: Area): List<Point> = Direction8.allVectors.map { this + it }.filter { it in area }
 
 val origin: Point = 0 to 0
+val emptyArea: Area = origin to (-1 to -1)
 
 infix operator fun Point.plus(other: Point): Point = x + other.x to y + other.y
 infix operator fun Point.minus(other: Point): Point = x - other.x to y - other.y
@@ -83,9 +85,13 @@ infix operator fun Point.div(factor: Point) = when (factor) {
 
 infix operator fun Point.rem(factor: Int): Point = x % factor to y % factor
 infix operator fun Point.rem(factor: Point): Point = x % factor.x to y % factor.y
+infix fun Point.mod(factor: Point): Point = x.mod(factor.x) to y.mod(factor.y)
+infix fun Point.mod(factor: Int): Point = x.mod(factor) to y.mod(factor)
 
 operator fun Point.unaryMinus(): Point = -x to -y
 
+val Point.length: Double get() = sqrt(x.toDouble() * x + y.toDouble() * y)
+val Point.absoluteValue: Point get() = x.absoluteValue to y.absoluteValue
 val Point.sign: Point get() = x.sign to y.sign
 
 fun Point.rotateLeft90(times: Int = 1): Point = when (times.mod(4)) {

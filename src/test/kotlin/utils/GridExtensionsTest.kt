@@ -121,7 +121,7 @@ class GridExtensionsTest : FunSpec({
         mapGrid.size shouldBe 5
 
 
-        println(Grid(mapOf((2 to 2) to 9), 0).formatted())
+        println(Grid(mapOf((2 to 2) to 9), 0).plot())
 
     }
 

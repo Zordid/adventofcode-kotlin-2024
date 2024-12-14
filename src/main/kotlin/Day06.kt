@@ -10,7 +10,7 @@ open class Day06 : Day(6, 2024) {
 
     override fun part1() = calculatePath().also {
         log {
-            map.formatted { p, value -> if (value == '.' && p in it) brightRed("*") else "$value" }
+            map.plot { p, value -> if (value == '.' && p in it) brightRed("*") else "$value" }
         }
     }.size
 

@@ -206,7 +206,7 @@ class PuzzleInput(private val raw: List<String>) {
             }"
         )
 
-        println(formatted { _, v ->
+        println(plot { _, v ->
             colors[v]?.invoke("$v") ?: "$v"
         })
 
