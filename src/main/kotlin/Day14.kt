@@ -32,15 +32,16 @@ class Day14 : Day(14, 2024, "Restroom Redoubt") {
         var nr = robots
         repeat(Int.MAX_VALUE) { seconds ->
             val pic = nr.map { it.p }.toSet()
-            val diagonalsLeft = pic.mapNotNull { pic.diagonalLine(it, LEFT)}
-            val diagonalsRight = pic.mapNotNull { pic.diagonalLine(it, RIGHT)}
-
-            if (diagonalsLeft.size >= 4 && diagonalsRight.size >= 4) {
-                val mark = (diagonalsLeft + diagonalsRight).flatten()
-                alog {
-                    "$seconds\n" + pic.plot(area = mark.boundingArea()?.grow(8), highlight = mark)
+            val diagonalsLeft = pic.mapNotNull { pic.diagonalLine(it, LEFT) }
+            if (diagonalsLeft.size >= 4) {
+                val diagonalsRight = pic.mapNotNull { pic.diagonalLine(it, RIGHT) }
+                if (diagonalsRight.size >= 4) {
+                    val mark = (diagonalsLeft + diagonalsRight).flatten()
+                    alog {
+                        "$seconds\n" + pic.plot(area = mark.boundingArea()?.grow(8), highlight = mark)
+                    }
+                    return seconds
                 }
-                return seconds
             }
 
             nr = nr.moveAll()
