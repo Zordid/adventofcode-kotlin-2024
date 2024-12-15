@@ -7,7 +7,7 @@ class Day13 : Day(13, 2024, "Claw Contraption") {
 
     private val games = input.sections.map {
         val (a, b, p) = it.map { it.extractAllIntegers() }
-        Game(a[0] to a[1], b[0] to b[1], p[0].toLong() to p[1].toLong()).show()
+        Game(a[0] to a[1], b[0] to b[1], p[0].toLong() to p[1].toLong())
     }
 
     override fun part1() = games.sumOf { it.minimumTokens() }

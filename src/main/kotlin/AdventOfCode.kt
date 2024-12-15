@@ -151,36 +151,39 @@ class SolveDsl<T : Day>(private val dayClass: KClass<T>) {
  */
 var verbose = true
 
-class PuzzleInput(private val raw: List<String>) {
-    val lines: List<String> by lazy { raw.show("Raw") }
-    val grid: Grid<Char> by lazy { raw.map { it.toList() }.show() }
-    val ints: List<Int> by lazy {
-        raw.singleOrNull()?.extractAllIntegers() ?: raw.mapNotNull { it.extractFirstIntOrNull() }.show("Int")
+class PuzzleInput(private val _raw: String) {
+    private val _lines by lazy { _raw.lines() }
+    val lines: List<String> by lazy { _lines.show("Lines") }
+    val grid: Grid<Char> by lazy { _lines.map { it.toList() }.show() }
+    val integers: List<Int> by lazy {
+        _lines.singleOrNull()?.extractAllIntegers() ?: _lines.mapNotNull { it.extractFirstIntOrNull() }.show("Int")
     }
     val longs: List<Long> by lazy {
-        raw.singleOrNull()?.extractAllLongs() ?: raw.mapNotNull { it.extractFirstLongOrNull() }.show("Long")
+        _lines.singleOrNull()?.extractAllLongs() ?: _lines.mapNotNull { it.extractFirstLongOrNull() }.show("Long")
     }
-    val string: String by lazy { raw.joinToString("\n").also { listOf(it).show("One string") } }
-    val sections: List<PuzzleInput> by lazy { raw.splitBy(delimiter = sectionDelimiter).map { PuzzleInput(it) } }
+    val raw: String by lazy { _raw.also { listOf(it).show("Raw") } }
+    val string: String by lazy { _lines.joinToString("").also { listOf(it).show("One string") } }
+    val sections: List<PuzzleInput> by lazy { _raw.split(sectionDelimiter).map { PuzzleInput(it) } }
 
-    var sectionDelimiter: (String) -> Boolean = String::isEmpty
+    var sectionDelimiter: Regex = """\n\n""".toRegex()
 
     operator fun get(section: Int) = sections[section]
 
     fun <R> map(transform: MapContext.(String) -> R): List<R> =
-        raw.withIndex().mapOrAccumulate { (idx, line) ->
+        _lines.withIndex().mapOrAccumulate { (idx, line) ->
             catch({ MapContext(idx).transform(line) }) { raise("Exception on line $idx: $it\n$line") }
         }.getOrElse {
             aocTerminal.danger(it.joinToString("\n")); exitProcess(1)
         }.show("Mapped")
 
+    private fun printTitle(title: String) {
+        aocTerminal.println(TextStyles.bold("==== $title ${"=".repeat(50 - title.length - 6)}"))
+    }
+
     private fun Grid<Char>.show(): Grid<Char> {
         verbose || return this
 
-        with("Grid data ($width x $height)") {
-            aocTerminal.println(TextStyles.bold("==== $this ${"=".repeat(50 - length - 6)}"))
-        }
-
+        printTitle("Grid data ($width x $height)")
         val brightColors =
             listOf(brightRed, brightMagenta, brightCyan, brightBlue, brightGreen, brightYellow)
                 .asInfiniteSequence().iterator()
@@ -216,16 +219,14 @@ class PuzzleInput(private val raw: List<String>) {
     private fun <T : List<E>, E : Any?> T.show(type: String, maxLines: Int = 10): T {
         verbose || return this
 
-        with(listOfNotNull(type.takeIf { it.isNotEmpty() }, "input data").joinToString(" ")) {
-            println("==== $this ${"=".repeat(50 - length - 6)}")
-        }
+        printTitle(listOfNotNull(type.takeIf { it.isNotEmpty() }, "input data").joinToString(" "))
         val idxWidth = lastIndex.toString().length
         preview(maxLines) { idx, data ->
-            val original = raw.getOrNull(idx)
+            val originalLine = _lines.getOrNull(idx)
             val s = when {
-                raw.size != this.size -> "$data"
-                original != "$data" -> "${original.restrictWidth(40, 40)} => $data"
-                else -> original
+                _lines.size != this.size -> "$data"
+                originalLine != "$data" -> "${originalLine.restrictWidth(40, 40)} => $data"
+                else -> originalLine
             }
             println("${idx.toString().padStart(idxWidth)}: ${s.restrictWidth(0, 160)}")
         }
@@ -266,11 +267,11 @@ sealed class Day(
 
     private val header: Unit by lazy { if (verbose) println("--- AoC $year, Day $day: $title ---\n") }
 
-    private val rawInput: List<String> by lazy {
+    private val rawInput: String by lazy {
         globalTestData?.also {
             logEnabled = true
             testInput = true
-        }?.split("\n") ?: AoC.getPuzzleInput(day, year).also {
+        } ?: AoC.getPuzzleInput(day, year).also {
             logEnabled = false
         }
     }
@@ -280,19 +281,6 @@ sealed class Day(
         header
         PuzzleInput(rawInput)
     }
-
-    fun <T> mappedInput(lbd: (String) -> T): List<T> =
-        rawInput.map(catchingMapper(lbd)).show("Mapped")
-
-    fun <T> parsedInput(
-        columnSeparator: Regex = Regex("\\s+"),
-        predicate: (String) -> Boolean = { true },
-        lbd: ParserContext.(String) -> T,
-    ): List<T> =
-        rawInput.filter(predicate).map(parsingMapper(columnSeparator, lbd)).show("Parsed")
-
-    fun <T> matchedInput(regex: Regex, lbd: (List<String>) -> T): List<T> =
-        rawInput.map(matchingMapper(regex, lbd)).show("Matched")
 
     val part1: Any? by lazy { part1() }
     val part2: Any? by lazy { part2() }
@@ -347,38 +335,6 @@ sealed class Day(
         (part to "$this").takeIf { (_, sAnswer) ->
             sAnswer !in listOf("null", "-1", "$NotYetImplemented") && sAnswer.length > 1 && "\n" !in sAnswer
         }
-
-    fun <T> T.show(prompt: String = "", maxLines: Int = 10): T {
-        verbose || return this
-
-        header
-        if (this is List<*>)
-            show(prompt, maxLines)
-        else
-            println("$prompt: $this")
-        return this
-    }
-
-    private fun <T : Any?> List<T>.show(type: String, maxLines: Int = 10): List<T> {
-        verbose || return this
-
-        header
-        with(listOfNotNull(type.takeIf { it.isNotEmpty() }, "input data").joinToString(" ")) {
-            println("==== $this ${"=".repeat(50 - length - 6)}")
-        }
-        val idxWidth = lastIndex.toString().length
-        preview(maxLines) { idx, data ->
-            val original = rawInput.getOrNull(idx)
-            val s = when {
-                rawInput.size != this.size -> "$data"
-                original != "$data" -> "${original.restrictWidth(40, 40)} => $data"
-                else -> original
-            }
-            println("${idx.toString().padStart(idxWidth)}: ${s.restrictWidth(0, 160)}")
-        }
-        println("=".repeat(50))
-        return this
-    }
 
     object NotYetImplemented {
         override fun toString() = "not yet implemented"
@@ -500,14 +456,14 @@ object AoC {
         }.isSuccess
     }
 
-    fun getPuzzleInput(day: Int, year: Event): List<String> {
+    fun getPuzzleInput(day: Int, year: Event): String {
         val cached = readInputFileOrNull(day, year)
         if (!cached.isNullOrEmpty()) return cached
 
         return web.downloadInput(FQD(day, year)).onSuccess {
             writeInputFile(day, year, it)
         }.getOrElse {
-            listOf("Unable to download $day/$year: $it")
+            "Unable to download $day/$year: $it"
         }
     }
 
@@ -612,15 +568,15 @@ object AoC {
                 ?.firstOrNull { it.isNotBlank() }
             ?: warn("No session cookie in environment or file found, will not be able to talk to AoC server.")
 
-    private fun readInputFileOrNull(day: Int, year: Event): List<String>? {
+    private fun readInputFileOrNull(day: Int, year: Event): String? {
         val file = File(fileNameFor(day, year))
         file.exists() || return null
-        return file.readLines()
+        return file.readText()
     }
 
-    private fun writeInputFile(day: Int, year: Event, puzzle: List<String>) {
+    private fun writeInputFile(day: Int, year: Event, puzzle: String) {
         File(pathNameForYear(year)).mkdirs()
-        File(fileNameFor(day, year)).writeText(puzzle.joinToString("\n"))
+        File(fileNameFor(day, year)).writeText(puzzle)
     }
 
     private fun readSubmitLog(year: Event): List<String> {
@@ -684,7 +640,7 @@ class AoCWebInterface(private val sessionCookie: String?) {
         private fun String.urlEncode() = URLEncoder.encode(this, Charsets.UTF_8)
     }
 
-    fun downloadInput(fqd: FQD): Result<List<String>> = runCatching {
+    fun downloadInput(fqd: FQD): Result<String> = runCatching {
         with(fqd) {
             println("Downloading puzzle for $fqd...")
             val url = URI("${fqd.toUri()}/input").toURL()
@@ -695,7 +651,7 @@ class AoCWebInterface(private val sessionCookie: String?) {
                     "Cookie", cookies.entries.joinToString(separator = "; ") { (k, v) -> "$k=$v" }
                 )
                 connect()
-                getInputStream().bufferedReader().readLines()
+                getInputStream().bufferedReader().readText()
             }
         }
     }

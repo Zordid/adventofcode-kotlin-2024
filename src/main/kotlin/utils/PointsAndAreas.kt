@@ -285,9 +285,9 @@ enum class Direction4(override val vector: Point, override val symbol: Char) : D
         fun ofSymbol(c: Char, nesw: String = "^>v<"): Direction4? =
             nesw.indexOf(c).takeUnless { it == -1 }?.let { entries[it] }
 
-        fun interpret(s: Any): Direction = interpretOrNull(s) ?: error("What direction should '$s' indicate?")
+        fun interpret(s: Any): Direction4 = interpretOrNull(s) ?: error("What direction should '$s' indicate?")
 
-        fun interpretOrNull(s: Any): Direction? = when ("$s".uppercase()) {
+        fun interpretOrNull(s: Any): Direction4? = when ("$s".uppercase()) {
             NORTH.name, "N", "UP", "U", "^" -> NORTH
             EAST.name, "E", "RIGHT", "R", ">" -> EAST
             SOUTH.name, "S", "DOWN", "D", "V" -> SOUTH

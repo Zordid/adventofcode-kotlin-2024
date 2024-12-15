@@ -64,3 +64,10 @@ java.sourceCompatibility = JavaVersion.VERSION_17
 application {
     mainClass.set("AdventOfCodeKt")
 }
+
+tasks.withType<Jar> {
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    configurations["compileClasspath"].forEach { file: File ->
+        from(zipTree(file.absoluteFile))
+    }
+}

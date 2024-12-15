@@ -219,12 +219,13 @@ fun <T> Grid<T>.plot(
     reverseX: Boolean = false,
     reverseY: Boolean = false,
     showHeaders: Boolean = true,
+    colors: Map<Char, TextStyle>? = null,
     highlight: (Point) -> Boolean = { false },
     broken: String = (TextColors.white on TextColors.red)("?"),
     filler: String = " ",
-    transform: (p: Point, value: T) -> String? = { _, value -> value?.toString() },
+    transform: (p: Point, value: T) -> Any? = { _, value -> value },
 ): String =
-    area.plot(reverseX, reverseY, showHeaders, highlight = highlight) { point ->
+    area.plot(reverseX, reverseY, showHeaders, colors, highlight) { point ->
         transform(point, this[point.y].getOrElse(point.x) { return@plot broken }) ?: filler
     }
 
@@ -263,6 +264,7 @@ inline fun Area?.plot(
     reverseX: Boolean = false,
     reverseY: Boolean = false,
     showHeaders: Boolean = true,
+    colors: Map<Char, TextStyle>? = null,
     crossinline highlight: (Point) -> Boolean = { false },
     crossinline paint: (Point) -> Any,
 ): String {
@@ -296,7 +298,11 @@ inline fun Area?.plot(
     return rowRange.joinToString(System.lineSeparator(), prefix = colPrefix, postfix = System.lineSeparator()) { row ->
         colRange.joinToString("", prefix = rowPrefix(row)) element@{ col ->
             val point = col to row
-            paint(point).toString().let {
+            val value = paint(point)
+            val formatted = if (colors != null && value is Char) {
+                colors[value]?.let { it(value.toString()) } ?: value.toString()
+            } else value.toString()
+            formatted.let {
                 if (highlight(point)) TextColors.red(it) else it
             }
         }
