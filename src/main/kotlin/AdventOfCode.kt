@@ -78,12 +78,17 @@ var globalTestData: String? = null
     }
 
 var logEnabled = false
-fun log(message: Terminal.() -> Any?) {
-    if (logEnabled && verbose) alog(message)
+
+fun log(clearEol: Boolean = false, message: Terminal.() -> Any?) {
+    if (logEnabled && verbose) alog(clearEol, message)
 }
 
-fun alog(message: Terminal.() -> Any?) {
-    if (verbose) println(aocTerminal.message().takeIf { it != Unit } ?: "")
+fun alog(clearEol: Boolean = false, message: Terminal.() -> Any?) {
+    if (verbose) {
+        print(aocTerminal.message().takeIf { it != Unit } ?: "")
+        if (clearEol) aocTerminal.cursor.move { clearLineAfterCursor() }
+        println()
+    }
 }
 
 fun <T : Day> create(dayClass: KClass<T>): T =

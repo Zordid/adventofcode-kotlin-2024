@@ -27,27 +27,23 @@ class Day15 : Day(15, 2024, "Warehouse Woes") {
     }
 
     fun MutableGrid<Char>.move(pos: Point, dir: Direction): Boolean {
-        val what = this[pos]
-        require(what in "@O") { "on wrong element $pos = $what" }
+        val targetPos = pos + dir
+        val here = this[pos]
+        val there = this[targetPos]
 
-        val target = pos + dir
-        val onTarget = this[target]
-        log { "Pos: $pos, $what -> $onTarget" }
-
-        if (onTarget == BOX)
-            if (!move(target, dir)) return false
-
-        if (this[target] == '.') {
-            this[target] = what
-            this[pos] = '.'
-            return true
-        } else {
-            return false
+        log { "Pos: $pos, $here -> $there" }
+        when (there) {
+            WALL -> return false
+            BOX -> if (!move(targetPos, dir)) return false
         }
+
+        this[targetPos] = here
+        this[pos] = EMPTY
+        return true
     }
 
     override fun part2(): Any? {
-        val logEnabled = ANIMATION
+        logEnabled = ANIMATION && !testInput
         val mg = maze.map {
             it.flatMap {
                 when (it) {
@@ -65,19 +61,12 @@ class Day15 : Day(15, 2024, "Warehouse Woes") {
 
         for ((idx, command) in instructions.withIndex()) {
             val cmd = Direction4.interpretOrNull(command) ?: continue
-            if (logEnabled) {
-                Thread.sleep(10)
-                aocTerminal.cursor.hide()
-                aocTerminal.cursor.move {
-                    up(mg.height + (mg.width.toString().length) + 1)
-                    clearLine()
-                }
-            }
             if (mg.move2(robot, cmd))
                 robot = robot + cmd
 
+            log(clearEol = true) { "$idx / ${instructions.length}: Move $command" }
             log {
-                "$idx / ${instructions.length}: Move $command\n" + mg.plot(
+                mg.plot(
                     colors = mapOf(
                         EMPTY to TextColors.gray,
                         ROBOT to TextColors.red,
@@ -88,33 +77,40 @@ class Day15 : Day(15, 2024, "Warehouse Woes") {
                     )
                 )
             }
+            if (logEnabled) {
+                //Thread.sleep(5)
+                aocTerminal.cursor.hide()
+                aocTerminal.cursor.move {
+                    up(mg.height + (mg.width.toString().length) + 1)
+                }
+            }
         }
         return mg.search(BOX_LEFT).map { it.y * 100L + it.x }.sum()
     }
 
     fun MutableGrid<Char>.move2(pos: Point, dir: Direction): Boolean {
-        val what = this[pos]
-        if (what == WALL) return false
-        require(what in "@[]") { "on wrong element $pos = $what" }
+        val here = this[pos]
+        if (here == WALL) return false
+        require(here in "@[]") { "on wrong element $pos = $here" }
         val target = pos + dir
-        val onTarget = this[target]
-        if (what == ROBOT) {
-            if (onTarget != EMPTY)
+        val there = this[target]
+        if (here == ROBOT) {
+            if (there != EMPTY)
                 if (!move2(target, dir)) return false
-            this[target] = what
+            this[target] = here
             this[pos] = EMPTY
             return true
         } else {
             if (dir in listOf(Direction4.LEFT, Direction4.RIGHT)) {
-                if (onTarget != EMPTY)
+                if (there != EMPTY)
                     if (!move2(target, dir)) return false
-                this[target] = what
+                this[target] = here
                 this[pos] = EMPTY
                 return true
             }
 
-            val boxStart = if (what == BOX_LEFT) pos else pos.left
-            val copy = this.map { it.toMutableList() }
+            val boxStart = if (here == BOX_LEFT) pos else pos.left
+            val copy = this.toMutableGrid()
             val free1 = (this[boxStart + dir] == EMPTY) || move2(boxStart + dir, dir)
             val free2 = (this[boxStart.right + dir] == EMPTY) || move2(boxStart.right + dir, dir)
 
