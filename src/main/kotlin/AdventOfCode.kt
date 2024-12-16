@@ -656,7 +656,7 @@ class AoCWebInterface(private val sessionCookie: String?) {
                     "Cookie", cookies.entries.joinToString(separator = "; ") { (k, v) -> "$k=$v" }
                 )
                 connect()
-                getInputStream().bufferedReader().readText()
+                getInputStream().bufferedReader().readText().trim()
             }
         }
     }
