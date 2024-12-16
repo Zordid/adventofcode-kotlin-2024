@@ -1,7 +1,7 @@
 import com.github.ajalt.mordant.rendering.TextColors.brightRed
 import utils.*
 
-open class Day06 : Day(6, 2024) {
+open class Day06 : Day(6, 2024, "Guard Gallivant") {
 
     val map = input.grid
     val area = map.area
