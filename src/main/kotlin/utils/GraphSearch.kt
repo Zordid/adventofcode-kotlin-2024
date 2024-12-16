@@ -2,21 +2,23 @@ package utils
 
 import java.util.*
 import kotlin.collections.ArrayDeque
+import kotlin.collections.isNotEmpty
 
 enum class SearchControl { STOP, CONTINUE }
 typealias DebugHandler<N> = (level: Int, nodesOnLevel: Collection<N>, nodesVisited: Collection<N>) -> SearchControl
 
 typealias SolutionPredicate<N> = (node: N) -> Boolean
 
-data class SearchResult<N>(val currentNode: N?, val distance: Map<N, Int>, val prev: Map<N, N>) {
-    val distanceToStart: Int? = currentNode?.let { distance[it] }
+data class SearchResult<N>(val solution: N?, val distance: Map<N, Int>, val prev: Map<N, N>) {
+    val success: Boolean get() = solution != null
+    val distanceToStart: Int? = solution?.let { distance[it] }
     val steps: Int? by lazy { (path.size - 1).takeIf { it >= 0 } }
     val path by lazy { buildPath() }
 
     private fun buildPath(): List<N> {
         val path = ArrayDeque<N>()
-        if (currentNode in distance) {
-            var nodeFoundThroughPrevious: N? = currentNode
+        if (solution in distance) {
+            var nodeFoundThroughPrevious: N? = solution
             while (nodeFoundThroughPrevious != null) {
                 path.addFirst(nodeFoundThroughPrevious)
                 nodeFoundThroughPrevious = prev[nodeFoundThroughPrevious]
@@ -96,12 +98,36 @@ class AStarSearch<N>(
     }
 }
 
-data class DijkstraMultiSolution<N>(
+class Dijkstra<N>(
     val startNode: N,
-    val neighborNodes: (N) -> Collection<N>,
-    val cost: ((N, N) -> Int)? = null,
+    private val neighborNodes: (N) -> Collection<N>,
+    private val cost: ((N, N) -> Int)? = null,
 ) {
-    fun search(predicate: SolutionPredicate<N>): MultiSolutionSearchResult<N> {
+    fun search(predicate: SolutionPredicate<N>): SearchResult<N> {
+        val dist = mutableMapOf<N, Int>(startNode to 0)
+        val prev = mutableMapOf<N, N>()
+        val queue = minPriorityQueueOf(startNode to 0)
+
+        while (queue.isNotEmpty()) {
+            val u = queue.extractMin()
+            if (predicate(u)) {
+                return SearchResult(u, dist, prev)
+            }
+            for (v in neighborNodes(u)) {
+                val alt = dist[u]!! + (cost?.invoke(u, v) ?: 1)
+                if (alt < dist.getOrDefault(v, Int.MAX_VALUE)) {
+                    dist[v] = alt
+                    prev[v] = u
+                    queue.insertOrUpdate(v, alt)
+                }
+            }
+        }
+
+        // no matching solution found
+        return SearchResult(null, dist, prev)
+    }
+
+    fun searchAll(predicate: SolutionPredicate<N>): MultiSolutionSearchResult<N> {
         val dist = mutableMapOf(startNode to 0)
         val prev = mutableMapOf<N, MutableList<N>>()
         val queue = minPriorityQueueOf(startNode to 0)
@@ -135,36 +161,6 @@ data class DijkstraMultiSolution<N>(
 
         // no matching solutions found
         return MultiSolutionSearchResult(emptySet(), dist, prev)
-    }
-}
-
-class Dijkstra<N>(
-    val startNode: N,
-    private val neighborNodes: (N) -> Collection<N>,
-    private val cost: ((N, N) -> Int)? = null,
-) {
-    private val dist = HashMap<N, Int>().apply { put(startNode, 0) }
-    private val prev = HashMap<N, N>()
-    private val queue = minPriorityQueueOf(startNode to 0)
-
-    fun search(predicate: SolutionPredicate<N>): SearchResult<N> {
-        while (queue.isNotEmpty()) {
-            val u = queue.extractMin()
-            if (predicate(u)) {
-                return SearchResult(u, dist, prev)
-            }
-            for (v in neighborNodes(u)) {
-                val alt = dist[u]!! + (cost?.invoke(u, v) ?: 1)
-                if (alt < dist.getOrDefault(v, Int.MAX_VALUE)) {
-                    dist[v] = alt
-                    prev[v] = u
-                    queue.insertOrUpdate(v, alt)
-                }
-            }
-        }
-
-        // failed search
-        return SearchResult(null, dist, prev)
     }
 
 }

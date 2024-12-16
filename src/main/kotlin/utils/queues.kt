@@ -43,12 +43,20 @@ fun <T> minPriorityQueueOf(vararg elements: Pair<T, Int>): MinPriorityQueue<T> =
 fun <T> minPriorityQueueOf(elements: Iterable<Pair<T, Int>>): MinPriorityQueue<T> =
     MinPriorityQueueImpl<T>().apply { elements.forEach { this += it } }
 
-interface QueueBasics<T> {
+/**
+ * The most general aspects of any queue defined in this context.
+ *
+ * Queues hold ordered elements and first and last elements can be retrieved.
+ */
+interface CommonQueue<T> {
     val size: Int
-    fun isEmpty(): Boolean
 
+    fun isEmpty(): Boolean
     fun removeFirst(): T
     fun removeFirstOrNull(): T?
+
+    fun peek(): T
+    fun peekOrNull(): T?
 }
 
 /**
@@ -57,7 +65,7 @@ interface QueueBasics<T> {
  * A queue combines the features of an [ArrayDeque] with those of a [Set].
  * It will only ever accept one occurrence of a given element.
  */
-interface Queue<T : Any> : QueueBasics<T>, Set<T> {
+interface Queue<T : Any> : CommonQueue<T>, Set<T> {
     /**
      *  Adds the given [element] at the end of the queue, unless it is already present.
      */
@@ -65,16 +73,6 @@ interface Queue<T : Any> : QueueBasics<T>, Set<T> {
 
     fun addFirst(element: T): Boolean
     fun addLast(element: T): Boolean
-    fun removeLast(): T
-    fun removeLastOrNull(): T?
-
-    operator fun plusAssign(element: T) {
-        add(element)
-    }
-
-    operator fun plusAssign(elements: Iterable<T>) {
-        addAll(elements)
-    }
 
     fun addAll(elements: Iterable<T>): Boolean {
         var addedAny = false
@@ -84,6 +82,15 @@ interface Queue<T : Any> : QueueBasics<T>, Set<T> {
 
     fun addAll(elements: Array<out T>): Boolean =
         addAll(elements.asIterable())
+
+
+    operator fun plusAssign(element: T) {
+        add(element)
+    }
+
+    operator fun plusAssign(elements: Iterable<T>) {
+        addAll(elements)
+    }
 }
 
 private class QueueImpl<T : Any> : Queue<T> {
@@ -102,16 +109,19 @@ private class QueueImpl<T : Any> : Queue<T> {
             if (wasAdded) deque.addLast(element)
         }
 
+    override fun peek(): T = deque.first()
+    override fun peekOrNull(): T? = deque.firstOrNull()
+
     override fun removeFirst(): T =
         deque.removeFirst().also { elementSet.remove(it) }
 
     override fun removeFirstOrNull(): T? =
         deque.removeFirstOrNull()?.also { elementSet.remove(it) }
 
-    override fun removeLast(): T =
+    fun removeLast(): T =
         deque.removeLast().also { elementSet.remove(it) }
 
-    override fun removeLastOrNull(): T? =
+    fun removeLastOrNull(): T? =
         deque.removeLastOrNull()?.also { elementSet.remove(it) }
 
     override fun isEmpty(): Boolean = deque.isEmpty()
@@ -121,25 +131,24 @@ private class QueueImpl<T : Any> : Queue<T> {
     override fun containsAll(elements: Collection<T>): Boolean = elements.containsAll(elements)
 
     override fun contains(element: T): Boolean = elementSet.contains(element)
-
-    override fun toString(): String {
-        return deque.toString()
-    }
 }
 
-interface MinPriorityQueue<T> : QueueBasics<T>, Set<T> {
+interface MinPriorityQueue<T> : CommonQueue<T>, Set<T> {
     val minPriority: Int?
     val maxPriority: Int?
 
     fun copy(): MinPriorityQueue<T>
+
     fun insertOrUpdate(element: T, priority: Int)
     fun decreasePriority(element: T, priority: Int): Boolean
+
     fun extractMin(): T
     fun extractMinWithPriority(): Pair<T, Int>
     fun extractMinOrNull(): T?
+    fun extractMinWithPriorityOrNull(): Pair<T, Int>?
     fun extractAllMin(): Set<T>
+
     fun remove(element: T): Boolean
-    fun peekOrNull(): T?
     fun getPriorityOf(element: T): Int
     override fun removeFirst() = extractMin()
     override fun removeFirstOrNull(): T? = extractMinOrNull()
@@ -156,21 +165,21 @@ interface MinPriorityQueue<T> : QueueBasics<T>, Set<T> {
         remove(element)
     }
 
-    operator fun plus(other: MinPriorityQueue<T>) = minPriorityQueueOf<T>().apply {
-        for (e in this) this += e to getPriorityOf(e)
-        for (e in other) this += e to other.getPriorityOf(e)
+    operator fun plus(other: MinPriorityQueue<T>) = copy().apply {
+        for (e in other) insertOrUpdate(e, other.getPriorityOf(e))
     }
 }
 
 private class MinPriorityQueueImpl<T>(
-    private val elementToPriority: HashMap<T, Int> = HashMap<T, Int>(),
-    private val priorityToElements: MutableMap<Int, MutableSet<T>> = HashMap<Int, MutableSet<T>>(),
+    private val elementToPriority: MutableMap<T, Int> = mutableMapOf<T, Int>(),
+    private val priorityToElements: MutableMap<Int, MutableSet<T>> = mutableMapOf<Int, MutableSet<T>>(),
     private val priorities: SortedSet<Int> = sortedSetOf<Int>(),
 ) : MinPriorityQueue<T> {
     override val size get() = elementToPriority.size
 
-    override fun iterator() = createSequence().iterator()
+    override fun iterator() = createIterator()
     override fun isEmpty() = elementToPriority.isEmpty()
+
     override operator fun contains(element: T) = elementToPriority.containsKey(element)
     override fun containsAll(elements: Collection<T>) = elementToPriority.keys.containsAll(elements)
     override val minPriority: Int?
@@ -180,9 +189,9 @@ private class MinPriorityQueueImpl<T>(
 
     override fun copy(): MinPriorityQueue<T> =
         MinPriorityQueueImpl(
-            HashMap(elementToPriority),
+            elementToPriority.toMutableMap(),
             priorityToElements.mapValues { (_, v) -> v.toMutableSet() }.toMutableMap(),
-            TreeSet(priorities)
+            priorities.toSortedSet()
         )
 
     override fun insertOrUpdate(element: T, priority: Int) {
@@ -240,8 +249,14 @@ private class MinPriorityQueueImpl<T>(
     override fun extractMinOrNull(): T? =
         if (isEmpty()) null else extractMin()
 
+    override fun extractMinWithPriorityOrNull(): Pair<T, Int>? =
+        if (isEmpty()) null else extractMinWithPriority()
+
+    override fun peek(): T =
+        priorityToElements[priorities.first()]!!.first()
+
     override fun peekOrNull(): T? =
-        priorityToElements[priorities.firstOrNull()]?.first()
+        if (isEmpty()) null else peek()
 
     override fun decreasePriority(element: T, priority: Int): Boolean {
         if (getPriorityOf(element) > priority) {
@@ -252,16 +267,15 @@ private class MinPriorityQueueImpl<T>(
         return false
     }
 
-    private fun createSequence(): Sequence<T> = sequence {
+    private fun createIterator(): Iterator<T> = iterator {
         for (priority in priorities)
             for (element in priorityToElements[priority]!!)
                 yield(element)
     }
 
-    override fun toString(): String {
-        return priorities.joinToString(prefix = "[", postfix = "]") { prio ->
+    override fun toString(): String =
+        priorities.joinToString(prefix = "[", postfix = "]") { prio ->
             "$prio: ${priorityToElements[prio]}"
         }
-    }
 
 }

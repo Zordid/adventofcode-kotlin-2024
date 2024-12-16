@@ -26,9 +26,9 @@ class Day16 : Day(16, 2024, "Reindeer Maze") {
     }
 
     override fun part2(): Any? {
-        val d = DijkstraMultiSolution(Pose(s, Direction4.EAST), ::neighbors, ::costs)
+        val d = Dijkstra(Pose(s, Direction4.EAST), ::neighbors, ::costs)
 
-        val r = d.search { it.pos == e }
+        val r = d.searchAll { it.pos == e }
 
         val points = mutableSetOf<Point>()
         log {
