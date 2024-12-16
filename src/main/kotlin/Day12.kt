@@ -19,7 +19,7 @@ class Day12 : Day(12, 2024, "Garden Groups") {
 
     fun regionOf(p: Point): Region {
         val type = g[p]
-        val q = dequeOf(p)
+        val q = queueOf(p)
         val region = mutableSetOf<Point>()
         val border = mutableSetOf<Point>()
         while (q.isNotEmpty()) {
@@ -29,7 +29,7 @@ class Day12 : Day(12, 2024, "Garden Groups") {
             region += here
             if (neighborsIn.size < 4) border += here
 
-            q += neighborsIn.filter { it !in region && it !in q }
+            q += neighborsIn.filter { it !in region }
         }
         return Region(type, region, border)
     }

@@ -27,6 +27,26 @@ data class SearchResult<N>(val currentNode: N?, val distance: Map<N, Int>, val p
 
 }
 
+data class MultiSolutionSearchResult<N>(val solutions: Set<N>, val distance: Map<N, Int>, val prev: Map<N, List<N>>) {
+    val success: Boolean get() = solutions.isNotEmpty()
+    val distanceToStart: Int? = solutions.firstOrNull()?.let { distance[it] }
+    val paths by lazy { findAllShortestPaths() }
+
+    private fun findAllShortestPaths(): List<List<N>> {
+        fun backtrack(current: N, path: List<N> = listOf(current)): List<List<N>> {
+            val prev = prev[current] ?: return listOf(listOf(current) + path.reversed())
+            return buildList {
+                val pathToCurrent = path + current
+                for (predecessor in prev) {
+                    addAll(backtrack(predecessor, pathToCurrent))
+                }
+            }
+        }
+        if (solutions.isEmpty()) return emptyList()
+        return solutions.flatMap { backtrack(it) }
+    }
+}
+
 class AStarSearch<N>(
     vararg startNodes: N,
     val neighborNodes: (N) -> Collection<N>,
@@ -36,10 +56,10 @@ class AStarSearch<N>(
 ) {
     private val dist = HashMap<N, Int>().apply { startNodes.forEach { put(it, 0) } }
     private val prev = HashMap<N, N>()
-    private val openList = minPriorityQueueOf(elements = startNodes)
+    private val openList = minPriorityQueueOf(startNodes.map { it to 0 })
     private val closedList = HashSet<N>()
 
-    fun search(destNode: N, limitSteps: Int? = null): SearchResult<N> {
+    fun search(destinationNode: N, limitSteps: Int? = null): SearchResult<N> {
 
         fun expandNode(currentNode: N) {
             onExpand?.invoke(SearchResult(currentNode, dist, prev))
@@ -54,25 +74,67 @@ class AStarSearch<N>(
                 prev[successor] = currentNode
                 dist[successor] = tentativeDist
 
-                val f = tentativeDist + costEstimation(successor, destNode)
+                val f = tentativeDist + costEstimation(successor, destinationNode)
                 openList.insertOrUpdate(successor, f)
             }
         }
 
-        if (destNode in dist)
-            return SearchResult(destNode, dist, prev)
+        if (destinationNode in dist)
+            return SearchResult(destinationNode, dist, prev)
 
         var steps = 0
         while (steps++ != limitSteps && openList.isNotEmpty()) {
             val currentNode = openList.extractMin()
-            if (currentNode == destNode)
-                return SearchResult(destNode, dist, prev)
+            if (currentNode == destinationNode)
+                return SearchResult(destinationNode, dist, prev)
 
             closedList += currentNode
             expandNode(currentNode)
         }
 
         return SearchResult(openList.peekOrNull(), dist, prev)
+    }
+}
+
+data class DijkstraMultiSolution<N>(
+    val startNode: N,
+    val neighborNodes: (N) -> Collection<N>,
+    val cost: ((N, N) -> Int)? = null,
+) {
+    fun search(predicate: SolutionPredicate<N>): MultiSolutionSearchResult<N> {
+        val dist = mutableMapOf(startNode to 0)
+        val prev = mutableMapOf<N, MutableList<N>>()
+        val queue = minPriorityQueueOf(startNode to 0)
+
+        while (queue.isNotEmpty()) {
+            val (u, priority) = queue.extractMinWithPriority()
+            if (predicate(u)) {
+                // do not forget to ask for more solutions with the same priority
+                val moreSolutions = if (queue.minPriority == priority)
+                    queue.extractAllMin().filter { predicate(it) } else emptyList()
+                return MultiSolutionSearchResult(setOf(u) + moreSolutions, dist, prev)
+            }
+            for (v in neighborNodes(u)) {
+                val alt = dist[u]!! + (cost?.invoke(u, v) ?: 1)
+                val known = dist.getOrDefault(v, Int.MAX_VALUE)
+                when {
+                    // relax, if new distance is less than known
+                    alt < known -> {
+                        dist[v] = alt
+                        prev[v] = mutableListOf(u)
+                        queue.insertOrUpdate(v, alt)
+                    }
+
+                    // add previous if distance is equal to known
+                    alt == known -> {
+                        prev[v]?.let { it += u }
+                    }
+                }
+            }
+        }
+
+        // no matching solutions found
+        return MultiSolutionSearchResult(emptySet(), dist, prev)
     }
 }
 
