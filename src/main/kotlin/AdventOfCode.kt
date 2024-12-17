@@ -79,15 +79,18 @@ var globalTestData: String? = null
 
 var logEnabled = false
 
-fun log(clearEol: Boolean = false, message: Terminal.() -> Any?) {
-    if (logEnabled && verbose) alog(clearEol, message)
+fun log(clearEol: Boolean = false, lazyMessage: Terminal.() -> Any?) {
+    if (logEnabled && verbose) alog(clearEol, lazyMessage)
 }
 
-fun alog(clearEol: Boolean = false, message: Terminal.() -> Any?) {
+fun alog(clearEol: Boolean = false, lazyMessage: Terminal.() -> Any?) {
     if (verbose) {
-        print(aocTerminal.message().takeIf { it != Unit } ?: "")
-        if (clearEol) aocTerminal.cursor.move { clearLineAfterCursor() }
-        println()
+        val message = aocTerminal.lazyMessage()
+        if (message != Unit) {
+            print(message)
+            if (clearEol) aocTerminal.cursor.move { clearLineAfterCursor() }
+            println()
+        }
     }
 }
 
