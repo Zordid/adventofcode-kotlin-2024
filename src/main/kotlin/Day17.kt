@@ -1,4 +1,5 @@
 import com.github.ajalt.mordant.rendering.TextColors.*
+import com.github.ajalt.mordant.rendering.TextStyles.bold
 
 class Day17 : Day(17, 2024, "Chronospatial Computer") {
 
@@ -114,9 +115,14 @@ class Day17 : Day(17, 2024, "Chronospatial Computer") {
                 state.reset(a, b, c)
                 state.run()
                 val output = state.output.joinToString("")
+                require(output.length == program.size) { "output is too short" }
+                val itsAMatch = state.output[program.lastIndex - hackIndex] == program[program.lastIndex - hackIndex]
+
                 alog {
                     val n =
-                        green(fixed) + brightRed("$offer") + gray("0".repeat(program.size - 1 - fixed.length))
+                        green(fixed) + (if (itsAMatch) (green + bold)("$offer") else (red + bold)("$offer")) + gray(
+                            "0".repeat(program.size - 1 - fixed.length)
+                        )
                     val ignored = program.size - 1 - hackIndex
                     val o = gray(output.take(ignored)) +
                             output.withIndex().drop(ignored)
@@ -126,8 +132,7 @@ class Day17 : Day(17, 2024, "Chronospatial Computer") {
                                 }
                     "$n -> $o"
                 }
-                require(output.length == program.size) { "output is too short" }
-                if (state.output[program.lastIndex - hackIndex] == program[program.lastIndex - hackIndex]) {
+                if (itsAMatch) {
                     val solution = hack("$fixed$offer")
                     if (solution != null) return solution
                 }
