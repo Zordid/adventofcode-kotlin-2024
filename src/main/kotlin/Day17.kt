@@ -1,3 +1,5 @@
+import com.github.ajalt.mordant.rendering.TextColors.*
+
 class Day17 : Day(17, 2024, "Chronospatial Computer") {
 
     val registers = input.sections[0].longs
@@ -29,44 +31,31 @@ class Day17 : Day(17, 2024, "Chronospatial Computer") {
             else -> error("combo $value")
         }
 
+        fun run() {
+            while (ip in program.indices) step()
+        }
+
         fun step() {
             val instruction = program[ip]
             val operand = program.getOrNull(ip + 1)
             ip += 2
             when (instruction) {
-                0 -> { // adv
-                    a = a / (1 shl combo(operand).toInt())
-                }
-
-                1 -> { // bxl
-                    b = b.xor(operand!!.toLong())
-                }
-
-                2 -> { // bst
-                    b = combo(operand) % 8
-                }
-
-                3 -> if (a != 0L) { // jnz
-                    ip = operand!!
-                }
-
-                4 -> { // bxc
-                    b = b.xor(c)
-                }
-
-                5 -> { // out
-                    val v = (combo(operand) % 8).toInt()
-                    output += v
-                    log { "Output $v" }
-                }
-
-                6 -> { // bdv
-                    b = a / (1 shl combo(operand).toInt())
-                }
-
-                7 -> { // cdv
-                    c = a / (1 shl combo(operand).toInt())
-                }
+                // adv
+                0 -> a = a / (1 shl combo(operand).toInt())
+                // bxl
+                1 -> b = b.xor(operand!!.toLong())
+                // bst
+                2 -> b = combo(operand) % 8
+                // jnz
+                3 -> if (a != 0L) ip = operand!!
+                // bxc
+                4 -> b = b.xor(c)
+                // out
+                5 -> output += (combo(operand) % 8).toInt()
+                // bdv
+                6 -> b = a / (1 shl combo(operand).toInt())
+                // cdv
+                7 -> c = a / (1 shl combo(operand).toInt())
             }
         }
 
@@ -75,7 +64,7 @@ class Day17 : Day(17, 2024, "Chronospatial Computer") {
         }
     }
 
-    override fun part1(): Any? {
+    override fun part1(): String {
         var (a, b, c) = registers
         val state = State(a, b, c, program)
 
@@ -89,52 +78,65 @@ class Day17 : Day(17, 2024, "Chronospatial Computer") {
     }
 
     /**
-     *
+     * All programs work like this with variations only in the xor codes or order of instructions
      * bst 4    b = a % 8
-     * bxl 5    b = b xor 101
+     * bxl 5    b = b xor 5
      * cdv 5    c = a / 2^b
-     * bxl 6    b = b xor 110
+     * bxl 6    b = b xor 6
+     * adv 3    a = a / 8
      * bxc 0    b = b xor c
      * out 5    out b
-     * adv 3    a = a / 8
      * jnz 0    if a!=0 jmp 0
-     *
      */
-    fun decrypt(a: Int, originalB: Int) {
-        var b = originalB // 3 bit
-        val c = a / 1 shl b
-    }
-
-    override fun part2(): Any? {
+    override fun part2(): Long {
         val (a, b, c) = registers
         val state = State(a, b, c, program)
 
-        var maxMatching = 0
-        val s: String? = "65110264632" // "5110264632"
-        var fixedDigits = s?.length ?: 0
-        var fixedValue = s?.toLong(8) ?: 0
-        var tryOut = 0L
-
-        alog{ "Target: ${program.joinToString("")}"}
-        while (true) {
-            val a = (tryOut shl (fixedDigits * 3)) + fixedValue
-            state.reset(a, b, c)
-            while (state.ip in program.indices) {
-                state.step()
-                val outputSize = state.output.size
-                if (outputSize > 0) {
-                    if (state.output[outputSize - 1] != program[outputSize - 1]) break
-                    if (outputSize > maxMatching) {
-                        maxMatching = outputSize
-                        alog { "Max matching $maxMatching / ${program.size} with ${a.toString(8)}" }
-                    }
-                    if (outputSize == program.size) return a
-                }
-            }
-            tryOut++
+        alog {
+            "New try, working from front to back\n" +
+                    "Idea: the program will output one 3-bit digit per 3-bits in register a\n" +
+                    "so, hack the lock from beginning to end, trying out all\n" +
+                    "<0..7>0000000000, then holding on the one that makes the output fit at the\n" +
+                    "last position. Repeat this for every 3-bit digit from left to right\n"
         }
 
-        return 0
+        fun hack(fixed: String): String? {
+            if (fixed.length == program.size) return fixed.also {
+                alog { "Cracked with ${green(fixed)}!" }
+            }
+            val hackIndex = fixed.length
+            alog { "Hacking at position ${hackIndex + 1}" }
+            for (offer in 0..7) {
+                if (offer == 0 && fixed.isEmpty()) continue
+
+                val aAsString = "$fixed$offer".padEnd(program.size, '0')
+                val a = aAsString.toLong(8)
+                state.reset(a, b, c)
+                state.run()
+                val output = state.output.joinToString("")
+                alog {
+                    val n =
+                        green(fixed) + brightRed("$offer") + gray("0".repeat(program.size - 1 - fixed.length))
+                    val ignored = program.size - 1 - hackIndex
+                    val o = gray(output.take(ignored)) +
+                            output.withIndex().drop(ignored)
+                                .joinToString("") { (idx, c) ->
+                                    if (c.digitToInt() == program[idx]) green("$c")
+                                    else red("$c")
+                                }
+                    "$n -> $o"
+                }
+                require(output.length == program.size) { "output is too short" }
+                if (state.output[program.lastIndex - hackIndex] == program[program.lastIndex - hackIndex]) {
+                    val solution = hack("$fixed$offer")
+                    if (solution != null) return solution
+                }
+            }
+            alog { "No suitable digit for position ${hackIndex + 1} found, backing up..." }
+            return null
+        }
+
+        return hack("")?.toLong(8) ?: 0
     }
 
 }
