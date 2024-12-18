@@ -2,7 +2,6 @@ package utils
 
 import java.util.*
 import kotlin.collections.ArrayDeque
-import kotlin.collections.isNotEmpty
 
 enum class SearchControl { STOP, CONTINUE }
 typealias DebugHandler<N> = (level: Int, nodesOnLevel: Collection<N>, nodesVisited: Collection<N>) -> SearchControl
@@ -49,22 +48,66 @@ data class MultiSolutionSearchResult<N>(val solutions: Set<N>, val distance: Map
     }
 }
 
+interface SearchDefinition<N> {
+    fun neighborNodes(node: N): Collection<N>
+    fun cost(from: N, to: N): Int
+    fun costEstimation(from: N, to: N): Int = throw NotImplementedError("please provide cost estimation")
+}
+
+interface SearchState<N> {
+    val next: N?
+    val dist: Map<N, Int>
+    val prev: Map<N, N>
+}
+
 class AStarSearch<N>(
-    vararg startNodes: N,
+    startNodes: Collection<N>,
     val neighborNodes: (N) -> Collection<N>,
     val cost: (N, N) -> Int,
     val costEstimation: (N, N) -> Int,
-    val onExpand: ((SearchResult<N>) -> Unit)? = null,
+    val onExpand: (SearchState<N>.(N) -> Unit)? = null,
 ) {
+    constructor(
+        startNode: N,
+        neighborNodes: (N) -> Collection<N>,
+        cost: (N, N) -> Int,
+        costEstimation: (N, N) -> Int,
+        onExpand: (SearchState<N>.(N) -> Unit)? = null,
+    ) : this(listOf(startNode), neighborNodes, cost, costEstimation, onExpand)
+
+    constructor(
+        startNodes: Collection<N>,
+        definition: SearchDefinition<N>,
+        onExpand: (SearchState<N>.(N) -> Unit)? = null,
+    ) : this(
+        startNodes,
+        definition::neighborNodes,
+        definition::cost,
+        definition::costEstimation,
+        onExpand
+    )
+
+    constructor(
+        startNode: N,
+        definition: SearchDefinition<N>,
+        onExpand: (SearchState<N>.(N) -> Unit)? = null,
+    ) : this(listOf(startNode), definition, onExpand)
+
     private val dist = HashMap<N, Int>().apply { startNodes.forEach { put(it, 0) } }
     private val prev = HashMap<N, N>()
     private val openList = minPriorityQueueOf(startNodes.map { it to 0 })
     private val closedList = HashSet<N>()
 
+    val state = object : SearchState<N> {
+        override val next get() = openList.peekOrNull()
+        override val dist get() = this@AStarSearch.dist
+        override val prev get() = this@AStarSearch.prev
+    }
+
     fun search(destinationNode: N, limitSteps: Int? = null): SearchResult<N> {
 
         fun expandNode(currentNode: N) {
-            onExpand?.invoke(SearchResult(currentNode, dist, prev))
+            onExpand?.invoke(state, currentNode)
             for (successor in neighborNodes(currentNode)) {
                 if (successor in closedList)
                     continue
@@ -81,7 +124,7 @@ class AStarSearch<N>(
             }
         }
 
-        if (destinationNode in dist)
+        if (destinationNode in closedList)
             return SearchResult(destinationNode, dist, prev)
 
         var steps = 0
@@ -94,7 +137,7 @@ class AStarSearch<N>(
             expandNode(currentNode)
         }
 
-        return SearchResult(openList.peekOrNull(), dist, prev)
+        return SearchResult(null, dist, prev)
     }
 }
 
@@ -103,6 +146,14 @@ class Dijkstra<N>(
     private val neighborNodes: (N) -> Collection<N>,
     private val cost: ((N, N) -> Int)? = null,
 ) {
+    constructor(startNode: N, definition: SearchDefinition<N>) : this(
+        startNode,
+        definition::neighborNodes,
+        definition::cost
+    )
+
+    fun search(endNode: N) = search { it == endNode }
+
     fun search(predicate: SolutionPredicate<N>): SearchResult<N> {
         val dist = mutableMapOf<N, Int>(startNode to 0)
         val prev = mutableMapOf<N, N>()
