@@ -59,22 +59,12 @@ class Day17 : Day(17, 2024, "Chronospatial Computer") {
                 7 -> c = a / (1 shl combo(operand).toInt())
             }
         }
-
-        fun debug() {
-            log { this@State }
-        }
     }
 
     override fun part1(): String {
         var (a, b, c) = registers
         val state = State(a, b, c, program)
-
-        state.debug()
-        while (state.ip in program.indices) {
-            state.step()
-            state.debug()
-        }
-
+        state.run()
         return state.output.joinToString(",")
     }
 
@@ -156,12 +146,12 @@ fun main() {
             Program: 0,1,5,4,3,0
         """.trimIndent() part1 "4,6,3,5,6,3,5,2,1,0"
 
-//        """
-//            Register A: 2024
-//            Register B: 0
-//            Register C: 0
-//
-//            Program: 0,3,5,4,3,0
-//        """.trimIndent() part2 117440
+        """
+            Register A: 2024
+            Register B: 0
+            Register C: 0
+
+            Program: 0,3,5,4,3,0
+        """.trimIndent() part2 117440
     }
 }
