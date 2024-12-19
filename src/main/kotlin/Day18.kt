@@ -8,22 +8,21 @@ class Day18 : Day(18, 2024, "RAM Run") {
     val end = dim to dim
     val area = origin to (end)
 
+    inner class RAM(val fallen: Set<Point>) : Graph<Point> {
+        override fun neighborsOf(node: Point) =
+            node.directNeighbors(area).filter { it !in fallen }
+
+        override fun costEstimation(from: Point, to: Point) =
+            from manhattanDistanceTo to
+    }
+
     override fun part1(): Any? {
-        val fallen = mutableSetOf<Point>()
-        positions.take(if (testInput) 12 else 1024).forEach { fallen += it }
+        val fallen = positions.take(if (testInput) 12 else 1024).toSet()
         log {
             area.plot { if (it in fallen) "#" else "." }
         }
 
-        val search = object : SearchDefinition<Point> {
-            override fun neighborNodes(node: Point): Collection<Point> =
-                node.directNeighbors(area).filter { it !in fallen }
-
-            override fun cost(from: Point, to: Point) = 1
-            override fun costEstimation(from: Point, to: Point) = from manhattanDistanceTo to
-        }
-
-        val r = AStarSearch(origin, search).search(end)
+        val r = RAM(fallen).aStarSearch(origin, end)
 
         log {
             area.plot {
@@ -40,19 +39,12 @@ class Day18 : Day(18, 2024, "RAM Run") {
 
     override fun part2(): Any? {
         val fallen = mutableSetOf<Point>()
-        val search = object : SearchDefinition<Point> {
-            override fun neighborNodes(node: Point): Collection<Point> =
-                node.directNeighbors(area).filter { it !in fallen }
-
-            override fun cost(from: Point, to: Point) = 1
-            override fun costEstimation(from: Point, to: Point) = from manhattanDistanceTo to
-        }
 
         var knownPath = emptySet<Point>()
         for (fall in positions) {
             fallen += fall
             if (knownPath.isEmpty() || fall in knownPath) {
-                val r = AStarSearch<Point>(origin, search).search(end)
+                val r = RAM(fallen).aStarSearch(origin, end)
                 if (!r.success) return with(fall) { "$x,$y" }
                 knownPath = r.path.toSet()
             }

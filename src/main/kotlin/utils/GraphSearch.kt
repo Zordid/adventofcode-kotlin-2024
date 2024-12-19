@@ -1,8 +1,5 @@
 package utils
 
-import java.util.*
-import kotlin.collections.ArrayDeque
-
 enum class SearchControl { STOP, CONTINUE }
 typealias DebugHandler<N> = (level: Int, nodesOnLevel: Collection<N>, nodesVisited: Collection<N>) -> SearchControl
 
@@ -48,10 +45,117 @@ data class MultiSolutionSearchResult<N>(val solutions: Set<N>, val distance: Map
     }
 }
 
-interface SearchDefinition<N> {
-    fun neighborNodes(node: N): Collection<N>
-    fun cost(from: N, to: N): Int
-    fun costEstimation(from: N, to: N): Int = throw NotImplementedError("please provide cost estimation")
+class Dijkstra<N>(
+    startNode: N,
+    val neighborsOf: (node: N) -> Collection<N>,
+    val cost: (from: N, to: N) -> Int,
+) {
+
+    private class SearchStateSingle<N>(
+        val startNode: N,
+        val dist: HashMap<N, Int> = HashMap(mapOf(startNode to 0)),
+        val prev: HashMap<N, N> = HashMap(),
+        val queue: MinPriorityQueue<N> = minPriorityQueueOf(startNode to 0),
+    )
+
+    private class SearchStateMulti<N>(
+        val startNode: N,
+        val dist: HashMap<N, Int> = HashMap<N, Int>(mapOf(startNode to 0)),
+        val prev: HashMap<N, MutableList<N>> = HashMap(),
+        val queue: MinPriorityQueue<N> = minPriorityQueueOf(startNode to 0),
+    )
+
+    private val searchStateSingle = SearchStateSingle(startNode)
+    private val searchStateMulti = SearchStateMulti(startNode)
+
+    fun search(endNode: N): SearchResult<N> {
+        with(searchStateSingle) {
+            if (endNode in prev) return SearchResult(endNode, dist, prev)
+        }
+        return searchInternal { it == endNode }
+    }
+
+    fun search(predicate: SolutionPredicate<N>): SearchResult<N> {
+        with(searchStateSingle) {
+            if (prev.isNotEmpty()) {
+                // check previous calculated distances for matching predicate
+                dist.firstNotNullOfOrNull { (node, _) -> node.takeIf(predicate) }
+                    ?.let { return SearchResult(it, dist, prev) }
+            }
+        }
+        return searchInternal(predicate)
+    }
+
+    private fun searchInternal(predicate: SolutionPredicate<N>): SearchResult<N> = with(searchStateSingle) {
+        while (queue.isNotEmpty()) {
+            val u = queue.extractMin()
+            if (predicate(u)) {
+                return SearchResult(u, dist, prev)
+            }
+            for (v in neighborsOf(u)) {
+                val alt = dist[u]!! + cost(u, v)
+                if (alt < dist.getOrDefault(v, Int.MAX_VALUE)) {
+                    dist[v] = alt
+                    prev[v] = u
+                    queue.insertOrUpdate(v, alt)
+                }
+            }
+        }
+
+        // no matching solution found
+        return SearchResult(null, dist, prev)
+    }
+
+    fun searchAll(endNode: N): MultiSolutionSearchResult<N> {
+        with(searchStateMulti) {
+            if (endNode in prev) return MultiSolutionSearchResult(setOf(endNode), dist, prev)
+        }
+        return searchAllInternal { it == endNode }
+    }
+
+    fun searchAll(predicate: SolutionPredicate<N>): MultiSolutionSearchResult<N> {
+        with(searchStateMulti) {
+            val matches = prev.keys.filter(predicate)
+            matches.minOfOrNull { dist[it]!! }?.let { minDistance ->
+                return MultiSolutionSearchResult(matches.filter { dist[it] == minDistance }.toSet(), dist, prev)
+            }
+        }
+        return searchAllInternal(predicate)
+    }
+
+    private fun searchAllInternal(predicate: SolutionPredicate<N>): MultiSolutionSearchResult<N> =
+        with(searchStateMulti) {
+            while (queue.isNotEmpty()) {
+                val (u, priority) = queue.extractMinWithPriority()
+                if (predicate(u)) {
+                    // do not forget to ask for more solutions with the same priority
+                    val moreSolutions = if (queue.minPriority == priority)
+                        queue.extractAllMin().filter { predicate(it) } else emptyList()
+                    return MultiSolutionSearchResult(setOf(u) + moreSolutions, dist, prev)
+                }
+                for (v in neighborsOf(u)) {
+                    val alt = dist[u]!! + cost(u, v)
+                    val known = dist.getOrDefault(v, Int.MAX_VALUE)
+                    when {
+                        // relax, if new distance is less than known
+                        alt < known -> {
+                            dist[v] = alt
+                            prev[v] = mutableListOf(u)
+                            queue.insertOrUpdate(v, alt)
+                        }
+
+                        // add previous if distance is equal to known
+                        alt == known -> {
+                            prev[v]?.let { it += u }
+                        }
+                    }
+                }
+            }
+
+            // no matching solutions found
+            return MultiSolutionSearchResult(emptySet(), dist, prev)
+        }
+
 }
 
 interface SearchState<N> {
@@ -62,38 +166,20 @@ interface SearchState<N> {
 
 class AStarSearch<N>(
     startNodes: Collection<N>,
-    val neighborNodes: (N) -> Collection<N>,
-    val cost: (N, N) -> Int,
-    val costEstimation: (N, N) -> Int,
+    val neighborsOf: (node: N) -> Collection<N>,
+    val cost: (from: N, to: N) -> Int,
+    val costEstimation: (from: N, to: N) -> Int,
     val onExpand: (SearchState<N>.(N) -> Unit)? = null,
 ) {
     constructor(
         startNode: N,
-        neighborNodes: (N) -> Collection<N>,
-        cost: (N, N) -> Int,
-        costEstimation: (N, N) -> Int,
+        neighborsOf: (node: N) -> Collection<N>,
+        cost: (from: N, to: N) -> Int,
+        costEstimation: (from: N, to: N) -> Int,
         onExpand: (SearchState<N>.(N) -> Unit)? = null,
-    ) : this(listOf(startNode), neighborNodes, cost, costEstimation, onExpand)
+    ) : this(listOf(startNode), neighborsOf, cost, costEstimation, onExpand)
 
-    constructor(
-        startNodes: Collection<N>,
-        definition: SearchDefinition<N>,
-        onExpand: (SearchState<N>.(N) -> Unit)? = null,
-    ) : this(
-        startNodes,
-        definition::neighborNodes,
-        definition::cost,
-        definition::costEstimation,
-        onExpand
-    )
-
-    constructor(
-        startNode: N,
-        definition: SearchDefinition<N>,
-        onExpand: (SearchState<N>.(N) -> Unit)? = null,
-    ) : this(listOf(startNode), definition, onExpand)
-
-    private val dist = HashMap<N, Int>().apply { startNodes.forEach { put(it, 0) } }
+    private val dist = HashMap<N, Int>(startNodes.associateWith { 0 })
     private val prev = HashMap<N, N>()
     private val openList = minPriorityQueueOf(startNodes.map { it to 0 })
     private val closedList = HashSet<N>()
@@ -108,7 +194,7 @@ class AStarSearch<N>(
 
         fun expandNode(currentNode: N) {
             onExpand?.invoke(state, currentNode)
-            for (successor in neighborNodes(currentNode)) {
+            for (successor in neighborsOf(currentNode)) {
                 if (successor in closedList)
                     continue
 
@@ -139,81 +225,6 @@ class AStarSearch<N>(
 
         return SearchResult(null, dist, prev)
     }
-}
-
-class Dijkstra<N>(
-    val startNode: N,
-    private val neighborNodes: (N) -> Collection<N>,
-    private val cost: ((N, N) -> Int)? = null,
-) {
-    constructor(startNode: N, definition: SearchDefinition<N>) : this(
-        startNode,
-        definition::neighborNodes,
-        definition::cost
-    )
-
-    fun search(endNode: N) = search { it == endNode }
-
-    fun search(predicate: SolutionPredicate<N>): SearchResult<N> {
-        val dist = mutableMapOf<N, Int>(startNode to 0)
-        val prev = mutableMapOf<N, N>()
-        val queue = minPriorityQueueOf(startNode to 0)
-
-        while (queue.isNotEmpty()) {
-            val u = queue.extractMin()
-            if (predicate(u)) {
-                return SearchResult(u, dist, prev)
-            }
-            for (v in neighborNodes(u)) {
-                val alt = dist[u]!! + (cost?.invoke(u, v) ?: 1)
-                if (alt < dist.getOrDefault(v, Int.MAX_VALUE)) {
-                    dist[v] = alt
-                    prev[v] = u
-                    queue.insertOrUpdate(v, alt)
-                }
-            }
-        }
-
-        // no matching solution found
-        return SearchResult(null, dist, prev)
-    }
-
-    fun searchAll(predicate: SolutionPredicate<N>): MultiSolutionSearchResult<N> {
-        val dist = mutableMapOf(startNode to 0)
-        val prev = mutableMapOf<N, MutableList<N>>()
-        val queue = minPriorityQueueOf(startNode to 0)
-
-        while (queue.isNotEmpty()) {
-            val (u, priority) = queue.extractMinWithPriority()
-            if (predicate(u)) {
-                // do not forget to ask for more solutions with the same priority
-                val moreSolutions = if (queue.minPriority == priority)
-                    queue.extractAllMin().filter { predicate(it) } else emptyList()
-                return MultiSolutionSearchResult(setOf(u) + moreSolutions, dist, prev)
-            }
-            for (v in neighborNodes(u)) {
-                val alt = dist[u]!! + (cost?.invoke(u, v) ?: 1)
-                val known = dist.getOrDefault(v, Int.MAX_VALUE)
-                when {
-                    // relax, if new distance is less than known
-                    alt < known -> {
-                        dist[v] = alt
-                        prev[v] = mutableListOf(u)
-                        queue.insertOrUpdate(v, alt)
-                    }
-
-                    // add previous if distance is equal to known
-                    alt == known -> {
-                        prev[v]?.let { it += u }
-                    }
-                }
-            }
-        }
-
-        // no matching solutions found
-        return MultiSolutionSearchResult(emptySet(), dist, prev)
-    }
-
 }
 
 //class DepthSearch<N, E>(
@@ -382,12 +393,12 @@ open class SearchEngineWithEdges<N, E>(
             return null
         }
 
-        private fun buildStack(node: N?): Stack<N> {
+        private fun buildStack(node: N?): ArrayDeque<N> {
             //println("Building stack for solution node $node")
-            val pathStack = Stack<N>()
+            val pathStack = ArrayDeque<N>()
             var nodeFoundThroughPrevious = node
             while (nodeFoundThroughPrevious != null) {
-                pathStack.add(0, nodeFoundThroughPrevious)
+                pathStack.addFirst(nodeFoundThroughPrevious)
                 nodeFoundThroughPrevious = nodesDiscoveredThrough[nodeFoundThroughPrevious]
             }
             return pathStack
@@ -395,7 +406,7 @@ open class SearchEngineWithEdges<N, E>(
 
         fun search() = buildStack(searchFrom(startNode, isSolution))
 
-        fun findBest(): Pair<Stack<N>, Set<N>> {
+        fun findBest(): Pair<ArrayDeque<N>, Set<N>> {
             return buildStack(searchFrom(startNode, isSolution)) to nodesVisited
         }
 
@@ -404,11 +415,11 @@ open class SearchEngineWithEdges<N, E>(
     fun bfsSearch(startNode: N, isSolution: SolutionPredicate<N>) =
         BfsSearch(startNode, isSolution)
 
-    fun depthFirstSearch(startNode: N, isSolution: SolutionPredicate<N>): Stack<N> {
+    fun depthFirstSearch(startNode: N, isSolution: SolutionPredicate<N>): ArrayDeque<N> {
         return DepthSearch(startNode, isSolution).search()
     }
 
-    fun depthFirstSearchWithNodes(startNode: N, isSolution: SolutionPredicate<N>): Pair<Stack<N>, Set<N>> {
+    fun depthFirstSearchWithNodes(startNode: N, isSolution: SolutionPredicate<N>): Pair<ArrayDeque<N>, Set<N>> {
         return DepthSearch(startNode, isSolution).findBest()
     }
 
@@ -442,8 +453,8 @@ data class AcyclicTraverseLevel<N>(val level: Int, val nodesOnLevel: Set<N>, val
 
 data class SearchLevel<N>(val level: Int, val nodesOnLevel: Collection<N>, val visited: Set<N>)
 
-class SearchEngineWithNodes<N>(neighborNodes: (N) -> Collection<N>) :
-    SearchEngineWithEdges<N, N>(neighborNodes, { _, edge -> edge })
+class SearchEngineWithNodes<N>(neighborsOf: (N) -> Collection<N>) :
+    SearchEngineWithEdges<N, N>(neighborsOf, { _, edge -> edge })
 
 fun <N, E> breadthFirstSearch(
     startNode: N,
@@ -455,17 +466,17 @@ fun <N, E> breadthFirstSearch(
 
 fun <N> breadthFirstSearch(
     startNode: N,
-    neighborNodes: (N) -> Collection<N>,
+    neighborsOf: (N) -> Collection<N>,
     isSolution: SolutionPredicate<N>,
 ) =
-    SearchEngineWithNodes(neighborNodes).bfsSearch(startNode, isSolution)
+    SearchEngineWithNodes(neighborsOf).bfsSearch(startNode, isSolution)
 
 fun <N> depthFirstSearch(
     startNode: N,
-    neighborNodes: (N) -> Collection<N>,
+    neighborsOf: (N) -> Collection<N>,
     isSolution: SolutionPredicate<N>,
-): Stack<N> =
-    SearchEngineWithNodes(neighborNodes).depthFirstSearch(startNode, isSolution)
+): ArrayDeque<N> =
+    SearchEngineWithNodes(neighborsOf).depthFirstSearch(startNode, isSolution)
 
 fun <N> loggingDebugger(): DebugHandler<N> = { level: Int, nodesOnLevel: Collection<N>, nodesVisited: Collection<N> ->
     println("I am on level $level, searching through ${nodesOnLevel.size}. Visited so far: ${nodesVisited.size}")

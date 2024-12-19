@@ -11,7 +11,15 @@ class Day14 : Day(14, 2024, "Restroom Redoubt") {
 
     private val dim = if (testInput) 11 to 7 else 101 to 103
 
-    data class Robot(val p: Point, val v: Point)
+    data class Robot(val p: Point, val v: Point) {
+        fun cycles(dim: Point): Int {
+            var tx = 1
+            while ((p.x + v.x * tx) % dim.x != p.x) tx++
+            var ty = 1
+            while ((p.y + v.y * ty) % dim.y != p.y) ty++
+            return lcm(tx, ty)
+        }
+    }
 
     private fun Collection<Robot>.moveAll() = map {
         it.copy(p = (it.p + it.v) mod dim)
