@@ -1,6 +1,15 @@
 package utils
 
+import io.kotest.matchers.booleans.shouldBeTrue
+import io.kotest.matchers.collections.shouldHaveSize
+import io.kotest.matchers.ints.shouldBeExactly
+import io.kotest.matchers.ints.shouldBeGreaterThan
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.shouldNotBe
+import io.kotest.property.Arb
+import io.kotest.property.arbitrary.int
+import io.kotest.property.checkAll
+import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -72,9 +81,54 @@ internal class PointsAndAreasKtTest {
 
     @Test
     fun testInvalidAreas() {
-        val a: Area = (Point(10, 10) to Point(5, 20)).fixed()
+        val a: Area = (Point(10, 10) areaTo Point(5, 20)).fixed()
         a.assertArea(false, 6, 11, 30)
     }
 
+    @Test
+    fun randomTests() = runTest {
+        checkAll(
+            Arb.int(-50..50),
+            Arb.int(-50..50),
+            Arb.int(-50..50),
+            Arb.int(-50..50),
+        ) { x1, y1, x2, y2 ->
+            val a = x1 to y1
+            val b = x2 to y2
 
+            val uncheckedArea = a areaTo b
+            val area = if (uncheckedArea.isValid()) {
+                uncheckedArea.fixed() shouldBe uncheckedArea
+                uncheckedArea.fixed().isValid().shouldBeTrue()
+                uncheckedArea
+            } else {
+                uncheckedArea.fixed() shouldNotBe uncheckedArea
+                uncheckedArea.fixed().isValid().shouldBeTrue()
+                uncheckedArea.fixed()
+            }
+
+            area.width shouldBeGreaterThan 0
+            area.height shouldBeGreaterThan 0
+
+            area.size shouldBe area.width * area.height
+            if (area.height > 1 && area.width > 1) {
+                area.border().distinct().count() shouldBeExactly area.width * 2 + (area.height - 2) * 2
+
+                val content = area.allPoints().toSet()
+                content shouldHaveSize area.size
+
+                if (area.height > 2 && area.width > 2) {
+                    val shrunk = area.shrink(1)
+
+                    val borderByArea = content - shrunk.allPoints().toSet()
+                    val border = area.border().toSet()
+                    border shouldBe borderByArea
+                }
+            }
+            if (area.width == 1)
+                area.border().distinct().count() shouldBeExactly area.height
+            if (area.height == 1)
+                area.border().distinct().count() shouldBeExactly area.width
+        }
+    }
 }

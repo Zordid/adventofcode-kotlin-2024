@@ -59,6 +59,8 @@ class GraphSearchTest : FunSpec({
                 it.pathTo(z) shouldHaveSize 23
                 it.distanceTo(z) shouldBe 22
             }
+
+            println(result.distance.plot(elementWidth = result.distance.values.maxOf { "$it".length }))
         }
 
         test("finds all shortest paths from S to E") {
@@ -77,6 +79,5 @@ class GraphSearchTest : FunSpec({
             }
         }
     }
-
 
 })

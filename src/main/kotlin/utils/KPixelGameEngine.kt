@@ -955,7 +955,7 @@ abstract class KPixelGameEngine(private val appName: String = "PixelGameEngine")
         fun randomGrayColor(brightnessFactor: Float = 0.3f): Color =
             Color.getHSBColor(0.0F, 0.0F, Random.nextFloat() * brightnessFactor)
 
-        fun randomDullColor() =
+        fun randomDullColor(): Color =
             (0..2).map { Random.nextInt(255) }.let { (r, g, b) ->
                 with(Color(r, g, b).blendWith(Color.BLACK, 0.3)) {
                     val hsb = Color.RGBtoHSB(red, green, blue, null)

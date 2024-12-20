@@ -2,13 +2,85 @@
 
 package utils
 
+import utils.Direction4.entries
+import utils.Direction8.entries
 import kotlin.math.*
 
 typealias Point = Pair<Int, Int>
-typealias Area = Pair<Point, Point>
 
 val Point.x: Int get() = first
 val Point.y: Int get() = second
+
+data class Area(val upperLeft: Point, val lowerRight: Point) {
+
+    fun Area.isEmpty() = size == 0
+    fun Area.isNotEmpty() = !isEmpty()
+
+    val width: Int get() = (lowerRight.x - upperLeft.x + 1).coerceAtLeast(0)
+    val height: Int get() = (lowerRight.y - upperLeft.y + 1).coerceAtLeast(0)
+    val size: Int get() = width * height
+
+    val upperRight: Point get() = lowerRight.x to upperLeft.y
+    val lowerLeft: Point get() = upperLeft.x to lowerRight.y
+    val left: Int get() = upperLeft.x
+    val right: Int get() = lowerRight.x
+    val top: Int get() = upperLeft.y
+    val bottom: Int get() = lowerRight.y
+    val topToBottom: IntRange get() = top..bottom
+    val leftToRight: IntRange get() = left..right
+
+    fun isValid(): Boolean = left <= right && top <= bottom
+    fun fixed(): Area = if (isValid()) this else of(upperLeft, lowerRight)
+
+    operator fun plus(other: Area) =
+        listOf(upperLeft, lowerRight, other.upperLeft, other.lowerRight).boundingArea()!!
+
+    operator fun contains(p: Point) = p.x in leftToRight && p.y in topToBottom
+
+    operator fun iterator(): Iterator<Point> = iterator { forEach { yield(it) } }
+
+    fun isBorder(p: Point) = p in this && p.y == top || p.y == bottom || p.x == left || p.x == right
+
+    inline fun forEach(f: (p: Point) -> Unit) {
+        for (y in topToBottom) {
+            for (x in leftToRight) {
+                f(x to y)
+            }
+        }
+    }
+
+    inline fun forEachReversed(f: (p: Point) -> Unit) {
+        for (y in topToBottom.reversed()) {
+            for (x in leftToRight.reversed()) {
+                f(x to y)
+            }
+        }
+    }
+
+    inline fun forBorder(f: (p: Point) -> Unit) {
+        for (y in topToBottom) {
+            when (y) {
+                top, bottom -> for (x in leftToRight) {
+                    f(x to y)
+                }
+
+                else -> {
+                    f(left to y)
+                    f(right to y)
+                }
+            }
+        }
+    }
+
+    companion object {
+        val EMPTY = Area(origin, -1 to -1)
+
+        fun of(a: Point, b: Point) =
+            Area(min(a.x, b.x) to min(a.y, b.y), max(a.x, b.x) to max(a.y, b.y))
+    }
+}
+
+infix fun Point.areaTo(end: Point) = Area(this, end)
 
 val Point.manhattanDistance: Int
     get() = x.absoluteValue + y.absoluteValue
@@ -63,7 +135,7 @@ fun Point.surroundingNeighbors(): List<Point> = Direction8.allVectors.map { this
 fun Point.surroundingNeighbors(area: Area): List<Point> = Direction8.allVectors.map { this + it }.filter { it in area }
 
 val origin: Point = 0 to 0
-val emptyArea: Area = origin to (-1 to -1)
+val emptyArea: Area = Area.EMPTY
 
 infix operator fun Point.plus(other: Point): Point = x + other.x to y + other.y
 infix operator fun Point.minus(other: Point): Point = x - other.x to y - other.y
@@ -111,7 +183,7 @@ fun Point.rotateRight90(times: Int = 1): Point = when (times.mod(4)) {
 //operator fun Point.compareTo(other: Point): Int =
 //    if (y == other.y) x.compareTo(other.x) else y.compareTo(other.y)
 
-fun Point.toArea(): Area = this to this
+fun Point.toArea(): Area = Area(this, this)
 
 operator fun Point.rangeTo(other: Point): Sequence<Point> = when (other) {
     this -> sequenceOf(this)
@@ -126,39 +198,26 @@ operator fun Point.rangeTo(other: Point): Sequence<Point> = when (other) {
     }
 }
 
-@JvmName("areaPlus")
-operator fun Area.plus(other: Area) = listOf(first, second, other.first, other.second).boundingArea()!!
 
-fun areaOf(a: Point, b: Point): Area = (min(a.x, b.x) to min(a.y, b.y)) to (max(a.x, b.x) to max(a.y, b.y))
-fun Area.isValid(): Boolean = first.x <= second.x && first.y <= second.y
-fun Area.fixed(): Area = if (isValid()) this else areaOf(first, second)
+fun Area.grow(by: Int = 1): Area =
+    Area(upperLeft + Direction8.NORTHWEST * by, lowerRight + Direction8.SOUTHEAST * by)
 
-fun Area.grow(by: Int = 1): Area = upperLeft + Direction8.NORTHWEST * by to lowerRight + Direction8.SOUTHEAST * by
-fun Area.growWidth(by: Int = 1): Area = upperLeft + Direction8.WEST * by to lowerRight + Direction8.EAST * by
-fun Area.growHeight(by: Int = 1): Area = upperLeft + Direction8.NORTH * by to lowerRight + Direction8.SOUTH * by
-fun Area.growTop(by: Int = 1): Area = upperLeft + Direction8.NORTH * by to lowerRight
-fun Area.growLeft(by: Int = 1): Area = upperLeft + Direction8.WEST * by to lowerRight
-fun Area.growRight(by: Int = 1): Area = upperLeft to lowerRight + Direction8.EAST * by
-fun Area.growBottom(by: Int = 1): Area = upperLeft to lowerRight + Direction8.SOUTH * by
-fun Area.shrink(by: Int = 1): Area = upperLeft + Direction8.SOUTHEAST * by to lowerRight + Direction8.NORTHWEST * by
-fun Area.scale(by: Int): Area = upperLeft to upperLeft + (width * by - 1 to height * by - 1)
+fun Area.growWidth(by: Int = 1): Area =
+    Area(upperLeft + Direction8.WEST * by, lowerRight + Direction8.EAST * by)
 
-fun Area.isEmpty() = size == 0
-fun Area.isNotEmpty() = !isEmpty()
-val Area.size: Int
-    get() = width * height
+fun Area.growHeight(by: Int = 1): Area =
+    Area(upperLeft + Direction8.NORTH * by, lowerRight + Direction8.SOUTH * by)
 
-val Area.upperLeft: Point get() = first
-val Area.lowerRight: Point get() = second
-val Area.upperRight: Point get() = second.x to first.y
-val Area.lowerLeft: Point get() = first.x to second.y
-val Area.left: Int get() = first.x
-val Area.right: Int get() = second.x
-val Area.top: Int get() = first.y
-val Area.bottom: Int get() = second.y
+fun Area.growTop(by: Int = 1) = Area(upperLeft + Direction8.NORTH * by, lowerRight)
+fun Area.growLeft(by: Int = 1) = Area(upperLeft + Direction8.WEST * by, lowerRight)
+fun Area.growRight(by: Int = 1) = Area(upperLeft, lowerRight + Direction8.EAST * by)
+fun Area.growBottom(by: Int = 1) = Area(upperLeft, lowerRight + Direction8.SOUTH * by)
+fun Area.shrink(by: Int = 1) = Area(upperLeft + Direction8.SOUTHEAST * by, lowerRight + Direction8.NORTHWEST * by)
+
+fun Area.scale(by: Int): Area = Area(upperLeft, upperLeft + (width * by - 1 to height * by - 1))
 
 fun allPointsInArea(from: Point, to: Point): Sequence<Point> =
-    areaOf(from, to).allPoints()
+    Area.of(from, to).allPoints()
 
 fun Iterable<Point>.withIn(area: Area) = filter { it in area }
 fun Sequence<Point>.withIn(area: Area) = filter { it in area }
@@ -167,7 +226,7 @@ private val areaRegex = ".*?(\\d+)\\D+(\\d+)\\D+(\\d+)\\D+(\\d+).*".toRegex()
 
 fun areaFromString(s: String): Area? =
     areaRegex.matchEntire(s)?.groupValues
-        ?.let { (it[1].toInt() to it[2].toInt()) to (it[3].toInt() to it[4].toInt()) }
+        ?.let { Area(it[1].toInt() to it[2].toInt(), it[3].toInt() to it[4].toInt()) }
 
 fun Area.allPoints(): Sequence<Point> = sequence { forEach { yield(it) } }
 fun Area.allPointsReversed(): Sequence<Point> = sequence { forEachReversed { yield(it) } }
@@ -178,46 +237,10 @@ fun Area.corners(): Sequence<Point> =
     else
         listOf(upperLeft, upperRight, lowerRight, lowerLeft).distinct().asSequence()
 
-inline fun Area.forEach(f: (p: Point) -> Unit) {
-    for (y in first.y..second.y) {
-        for (x in first.x..second.x) {
-            f(x to y)
-        }
-    }
-}
 
-inline fun Area.forEachReversed(f: (p: Point) -> Unit) {
-    for (y in second.y downTo first.y) {
-        for (x in second.x downTo first.x) {
-            f(x to y)
-        }
-    }
-}
-
-inline fun Area.forBorder(f: (p: Point) -> Unit) {
-    for (y in first.y..second.y) {
-        when (y) {
-            first.y, second.y -> for (x in first.x..second.x) {
-                f(x to y)
-            }
-
-            else -> {
-                f(first.x to y)
-                f(second.x to y)
-            }
-        }
-    }
-}
-
-operator fun Area.contains(p: Point) = p.x in first.x..second.x && p.y in first.y..second.y
 operator fun Area.plus(amount: Int) = grow(by = amount)
 operator fun Area.minus(amount: Int) = shrink(by = amount)
 
-val Area.width: Int
-    get() = (second.x - first.x + 1).coerceAtLeast(0)
-
-val Area.height: Int
-    get() = (second.y - first.y + 1).coerceAtLeast(0)
 
 fun Area.overlaps(other: Area): Boolean =
     max(left, other.left) <= min(right, other.right) && max(top, other.top) <= min(bottom, other.bottom)
@@ -225,7 +248,7 @@ fun Area.overlaps(other: Area): Boolean =
 fun Iterable<Point>.boundingArea(): Area? {
     val (minX, maxX) = minMaxByOrNull { it.x } ?: return null
     val (minY, maxY) = minMaxByOrNull { it.y }!!
-    return (minX.x to minY.y) to (maxX.x to maxY.y)
+    return Area(minX.x to minY.y, maxX.x to maxY.y)
 }
 
 /**

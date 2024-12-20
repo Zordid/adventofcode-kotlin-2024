@@ -23,7 +23,8 @@ fun <T> List<List<T>>.asGrid(): Grid<T> = this
 
 val Grid<*>.width: Int get() = firstOrNull()?.size ?: 0
 val Grid<*>.height: Int get() = size
-val Grid<*>.area: Area get() = origin to lastPoint
+val Grid<*>.area: Area get() = Area(origin, lastPoint)
+val Grid<*>.maxArea: Area get() = Area(origin, (maxOf { it.lastIndex } to lastIndex))
 val Grid<*>.colIndices: IntRange get() = firstOrNull()?.indices ?: IntRange.EMPTY
 val Grid<*>.rowIndices: IntRange get() = indices
 
@@ -35,7 +36,7 @@ val MapGrid<*>.areaOrNull: Area? get() = keys.boundingArea()
 /**
  * The last (bottom right) point in this [Grid] or `-1 to -1` for an empty Grid.
  */
-val Grid<*>.lastPoint get() = width - 1 to height - 1
+val Grid<*>.lastPoint: Point get() = (firstOrNull()?.lastIndex ?: -1) to lastIndex
 
 /**
  * Checks whether the given coordinate [p] is within the bounds of this [Grid]
@@ -94,7 +95,7 @@ inline fun <T> MutableGrid(map: Map<Point, T>, crossinline default: (Point) -> T
     require(first.x >= 0 && first.y >= 0) {
         "Given Map contains negative points. Maybe construct using Grid(width, height) { custom translation }"
     }
-    val area = origin to last
+    val area = origin areaTo last
     return MutableGrid(area, map, default)
 }
 
@@ -119,7 +120,7 @@ inline fun <T> MutableGrid(
 
 @PublishedApi
 internal fun Area.requireOrigin() =
-    require(first == origin) { "Area for grid must start at origin, but $this was given." }
+    require(upperLeft == origin) { "Area for grid must start at origin, but $this was given." }
 
 /**
  * Returns a new [MutableGrid] filled with all elements of this Grid.
@@ -130,7 +131,7 @@ fun <T> Grid<T>.toMutableGrid(): MutableGrid<T> = MutableList(size) { this[it].t
  * Fixes missing elements in a [Grid] by filling in `null`.
  * @return a completely uniform n x m Grid
  */
-fun <T> Grid<T>.fixed(): Grid<T?> = fixed(null)
+fun <T> Grid<T>.fixedWithNull(): Grid<T?> = fixed(null)
 
 /**
  * Fixes missing elements in a [Grid] by filling in [default].
@@ -224,7 +225,7 @@ fun <T, R> Grid<T>.mapValues(transform: (T) -> R): Grid<R> =
 fun <T, R> Grid<T>.mapValuesIndexed(transform: (Point, T) -> R): Grid<R> =
     mapIndexed { y, r -> r.mapIndexed { x, v -> transform(x to y, v) } }
 
-fun <T> Grid<T>.frequencies(): Map<T, Int> = area.allPoints().groupingBy { this[it] }.eachCount()
+fun <T> Grid<T>.frequencies(): Map<T, Int> = allPointsAndValues().map { it.second }.groupingBy { it }.eachCount()
 
 private val brightColors = listOf(
     brightRed,
@@ -255,147 +256,46 @@ fun <T> Grid<T>.autoColoring(vararg extra: Pair<T, TextStyle>): Map<T, TextStyle
     return colors + extra.toMap()
 }
 
-object HoleInGrid
-
-fun <T : Any> Grid<T>.plot(
-    area: Area? = this.area,
-    reverseX: Boolean = false,
-    reverseY: Boolean = false,
-    showHeaders: Boolean = true,
-    colors: Map<T, TextStyle?> = emptyMap(),
-    highlight: (Point) -> Boolean = { false },
-    broken: TextStyle = (white on red),
-    transform: (p: Point, value: T) -> Any = { _, value -> value },
-): String =
-    area.plot(
-        reverseX,
-        reverseY,
-        showHeaders,
-        mapOf<Any, TextStyle?>(HoleInGrid to broken) + colors,
-        highlight
-    ) { point ->
-        val value = this.getOrElse(point) { return@plot HoleInGrid }
-        transform(point, value)
-    }
 
 fun highlight(highlight: Collection<Point>, style: TextStyle = TextColors.brightRed): (Point, Any?) -> String =
     { p, v ->
         if (p in highlight) style("$v") else "$v"
     }
 
-fun <T> MapGrid<T>.plot(
-    area: Area? = keys.boundingArea(),
-    reverseX: Boolean = false,
-    reverseY: Boolean = false,
-    showHeaders: Boolean = true,
-    highlight: (Point) -> Boolean = { false },
-    filler: (Point) -> String = { " " },
-    transform: (Point, T) -> String = { _, value -> value.toString() },
-): String =
-    area.plot(reverseX, reverseY, showHeaders, highlight = highlight) { point ->
-        transform(point, getOrElse(point) { return@plot filler(point) })
-    }
-
-fun Iterable<Point>.plot(
-    area: Area? = this.boundingArea(),
-    reverseX: Boolean = false,
-    reverseY: Boolean = false,
-    showHeaders: Boolean = true,
-    highlight: Collection<Point> = null ?: emptyList(),
-    filler: String = " ",
-    paint: (Point) -> String = { "#" },
-): String =
-    area.plot(reverseX, reverseY, showHeaders, highlight = { it in highlight.toSet() }) { point ->
-        if (point in this) paint(point) else filler
-    }
-
-inline fun <T : Any> Area?.plot(
-    reverseX: Boolean = false,
-    reverseY: Boolean = false,
-    showHeaders: Boolean = true,
-    colors: Map<T, TextStyle?> = emptyMap(),
-    crossinline highlight: (Point) -> Boolean = { false },
-    crossinline transform: (Point) -> T,
-): String {
-    val headerStyle = TextColors.yellow
-
-    val area = this
-    if (area == null || area.isEmpty()) return "empty area, no plot"
-    val colRange = if (reverseX) area.right downTo area.left else area.left..area.right
-    val rowRange = if (reverseY) area.bottom downTo area.top else area.top..area.bottom
-
-    val (colPrefix, rowPrefix: (Int) -> String) = if (showHeaders) {
-        val maxColWidth = listOf(left, right).maxOf { "$it".length }
-        val maxRowWidth = listOf(top, bottom).maxOf { "$it ".length }
-        val emptyRowHeader = " ".repeat(maxRowWidth)
-        val colHeader = (0 until maxColWidth).joinToString(
-            System.lineSeparator(),
-            postfix = System.lineSeparator()
-        ) { r ->
-            headerStyle(colRange.joinToString("", prefix = " ".repeat(maxRowWidth)) { col ->
-                if (col % 5 == 0 || col == colRange.first || col == colRange.last)
-                    "$col".padStart(maxColWidth)[r].toString()
-                else " "
-            })
-        }
-        colHeader to { r: Int ->
-            if (r % 5 == 0 || r == rowRange.first || r == rowRange.last)
-                headerStyle("$r ".padStart(maxRowWidth))
-            else emptyRowHeader
-        }
-    } else {
-        "" to { _: Int -> "" }
-    }
-    return rowRange.joinToString(System.lineSeparator(), prefix = colPrefix, postfix = System.lineSeparator()) { row ->
-        colRange.joinToString("", prefix = rowPrefix(row)) element@{ col ->
-            val point = col to row
-            val highlight = highlight(point)
-            val value = transform(point)
-            val color = colors[value]?.let {
-                if (highlight) it on white else it
-            }
-            val formatted = if (color != null) color(value.toString()) else value.toString()
-            formatted.let {
-                if (highlight(point)) TextColors.red(it) else it
-            }
-        }
-    }
-}
-
 operator fun <T> Grid<T>.get(v: T): Point =
     requireNotNull(search(v).singleOrNull()) { "Grid does not contain any single value '$v'" }
 
 operator fun <T> Grid<T>.get(p: Point): T =
-    if (p.y in indices && p.x in first().indices) this[p.y][p.x]
+    if (p.y in indices && p.x in this[p.y].indices) this[p.y][p.x]
     else notInGridError(p)
 
 fun <T> Grid<T>.getOrNull(p: Point): T? =
-    if (p.y in indices && p.x in first().indices) this[p.y][p.x]
+    if (p.y in indices && p.x in this[p.y].indices) this[p.y][p.x]
     else null
 
 inline fun <T> Grid<T>.getOrElse(p: Point, default: (Point) -> T): T =
-    if (p.y in indices && p.x in first().indices) this[p.y][p.x]
+    if (p.y in indices && p.x in this[p.y].indices) this[p.y][p.x]
     else default(p)
 
 fun <T> Grid<T>.getOrDefault(p: Point, default: T): T =
-    if (p.y in indices && p.x in first().indices) this[p.y][p.x]
+    if (p.y in indices && p.x in this[p.y].indices) this[p.y][p.x]
     else default
 
 operator fun <T> MutableGrid<T>.set(p: Point, v: T) {
-    if (p.y in indices && p.x in first().indices) this[p.y][p.x] = v
+    if (p.y in indices && p.x in this[p.y].indices) this[p.y][p.x] = v
     else notInGridError(p)
 }
 
 operator fun List<String>.get(p: Point): Char =
-    if (p.y in indices && p.x in first().indices) this[p.y][p.x]
+    if (p.y in indices && p.x in this[p.y].indices) this[p.y][p.x]
     else notInListGridError(p)
 
 fun List<String>.getOrNull(p: Point): Char? =
-    if (p.y in indices && p.x in first().indices) this[p.y][p.x]
+    if (p.y in indices && p.x in this[p.y].indices) this[p.y][p.x]
     else null
 
 fun List<String>.getOrElse(p: Point, default: (Point) -> Char): Char =
-    if (p.y in indices && p.x in first().indices) this[p.y][p.x]
+    if (p.y in indices && p.x in this[p.y].indices) this[p.y][p.x]
     else default(p)
 
 private fun Grid<*>.notInGridError(p: Point): Nothing =

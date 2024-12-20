@@ -34,7 +34,7 @@ interface Grid2D<T> : BaseGrid2D<T> {
     val rows: Int
     val columns: Int
     val size: Int
-    val area: Area get() = origin to (columns - 1 to rows - 1)
+    val area: Area get() = origin areaTo (columns - 1 to rows - 1)
 
     override fun checkBounds(column: Int, row: Int): Boolean =
         column in 0 until columns && row in 0 until rows

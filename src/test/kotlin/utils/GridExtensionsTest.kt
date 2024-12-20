@@ -109,7 +109,7 @@ class GridExtensionsTest : FunSpec({
 
         g.width shouldBeExactly 3
         g.height shouldBeExactly 3
-        g.area shouldBe (origin to (2 to 2))
+        g.area shouldBe (origin areaTo (2 to 2))
 
         g[origin] shouldBeExactly 1
         g[g.lastPoint] shouldBeExactly 9
@@ -125,5 +125,28 @@ class GridExtensionsTest : FunSpec({
 
     }
 
+    test("plotting of tests") {
+        val maze = """
+        #####
+        #..E#   #####
+        #...#   #...#
+        #.#.#####.#.#####
+        #S#.......*....Z# 
+        #################
+    """.trimIndent().toGrid()
+
+        println(
+            maze.plot(
+                elementWidth = 3,
+                colors = maze.autoColoring()
+            )
+        )
+
+        println(
+            maze.fixed("X").plot(
+                colors = maze.autoColoring()
+            )
+        )
+    }
 
 })

@@ -15,6 +15,7 @@ import java.awt.datatransfer.Clipboard
 import java.awt.datatransfer.StringSelection
 import java.awt.datatransfer.Transferable
 import java.io.File
+import java.lang.reflect.InvocationTargetException
 import java.net.HttpURLConnection
 import java.net.URI
 import java.net.URLEncoder
@@ -93,9 +94,17 @@ fun alog(clearEol: Boolean = false, lazyMessage: Terminal.() -> Any?) {
     }
 }
 
-fun <T : Day> create(dayClass: KClass<T>): T =
-    dayClass.constructors.firstOrNull { it.parameters.isEmpty() }?.call()
+fun <T : Day> create(dayClass: KClass<T>): T {
+    val primaryConstructor = dayClass.constructors.firstOrNull { it.parameters.isEmpty() }
         ?: error("${dayClass.simpleName} has no parameterless constructor")
+    return try {
+        primaryConstructor.call()
+    } catch (e: InvocationTargetException) {
+        System.err.println("Cannot instantiate ${dayClass.simpleName}:")
+        e.cause?.printStackTrace()
+        exitProcess(1)
+    }
+}
 
 data class TestData(val input: String, val expectedPart1: Any?, val expectedPart2: Any?) {
 
@@ -161,7 +170,7 @@ var verbose = true
 class PuzzleInput(private val _raw: String) {
     private val _lines by lazy { _raw.lines() }
     val lines: List<String> by lazy { _lines.show("lines with max length ${_lines.maxOfOrNull { it.length }}") }
-    val grid: Grid<Char> by lazy { _lines.map { it.toList() }.requireRegular().show() }
+    val grid: Grid<Char> by lazy { _lines.map { it.toList() }.show() }
     val integers: List<Int> by lazy {
         val integers = _lines.singleOrNull()?.extractAllIntegers() ?: _lines.mapNotNull { it.extractFirstIntOrNull() }
         integers.show("Int values")
@@ -170,7 +179,13 @@ class PuzzleInput(private val _raw: String) {
         val longs = _lines.singleOrNull()?.extractAllLongs() ?: _lines.mapNotNull { it.extractFirstLongOrNull() }
         longs.show("Long values")
     }
-    val raw: String by lazy { _raw.also { listOf(it).show("raw string of length ${it.length} with ${it.lineSequence().count() -1} line breaks") } }
+    val raw: String by lazy {
+        _raw.also {
+            listOf(it).show(
+                "raw string of length ${it.length} with ${it.lineSequence().count() - 1} line breaks"
+            )
+        }
+    }
     val string: String by lazy { _lines.joinToString("").also { listOf(it).show("string of length ${it.length}") } }
     val sections: List<PuzzleInput> by lazy { _raw.split(sectionDelimiter).map { PuzzleInput(it) } }
 
@@ -190,21 +205,21 @@ class PuzzleInput(private val _raw: String) {
     }
 
     private fun Grid<Char>.show(): Grid<Char> {
-        verbose || return this
+        if (verbose) {
+            printTitle("Grid data ($width x $height)")
+            val frequencies = frequencies()
+            val colors = autoColoring()
+            println(
+                "Contains: ${
+                    frequencies.entries.sortedBy { frequencies[it.key] }
+                        .map { (c, count) -> (colors[c]?.invoke("$c") ?: "$c") + ": $count" }
+                }"
+            )
 
-        printTitle("Grid data ($width x $height)")
-        val frequencies = frequencies()
-        val colors = autoColoring()
-        println(
-            "Contains: ${
-                frequencies.entries.sortedBy { frequencies[it.key] }
-                    .map { (c, count) -> (colors[c]?.invoke("$c") ?: "$c") + ": $count" }
-            }"
-        )
+            println(plot(colors = colors))
+        }
 
-        println(plot(colors = colors))
-
-        return this
+        return this.requireRegular()
     }
 
     private fun <T : List<E>, E : Any?> T.show(title: String, maxLines: Int = 10): T {

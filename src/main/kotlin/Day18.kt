@@ -6,7 +6,7 @@ class Day18 : Day(18, 2024, "RAM Run") {
 
     val dim = if (testInput) 6 else 70
     val end = dim to dim
-    val area = origin to (end)
+    val area = origin areaTo end
 
     inner class RAM(val fallen: Set<Point>) : Graph<Point> {
         override fun neighborsOf(node: Point) =
