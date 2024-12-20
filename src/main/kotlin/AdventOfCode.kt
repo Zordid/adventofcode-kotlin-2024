@@ -6,7 +6,6 @@ import Part.P2
 import arrow.core.getOrElse
 import arrow.core.mapOrAccumulate
 import arrow.core.raise.catch
-import com.github.ajalt.mordant.rendering.TextColors
 import com.github.ajalt.mordant.rendering.TextColors.*
 import com.github.ajalt.mordant.rendering.TextStyles
 import com.github.ajalt.mordant.terminal.*
@@ -161,16 +160,18 @@ var verbose = true
 
 class PuzzleInput(private val _raw: String) {
     private val _lines by lazy { _raw.lines() }
-    val lines: List<String> by lazy { _lines.show("Lines") }
-    val grid: Grid<Char> by lazy { _lines.map { it.toList() }.show() }
+    val lines: List<String> by lazy { _lines.show("lines with max length ${_lines.maxOfOrNull { it.length }}") }
+    val grid: Grid<Char> by lazy { _lines.map { it.toList() }.requireRegular().show() }
     val integers: List<Int> by lazy {
-        _lines.singleOrNull()?.extractAllIntegers() ?: _lines.mapNotNull { it.extractFirstIntOrNull() }.show("Int")
+        val integers = _lines.singleOrNull()?.extractAllIntegers() ?: _lines.mapNotNull { it.extractFirstIntOrNull() }
+        integers.show("Int values")
     }
     val longs: List<Long> by lazy {
-        _lines.singleOrNull()?.extractAllLongs() ?: _lines.mapNotNull { it.extractFirstLongOrNull() }.show("Long")
+        val longs = _lines.singleOrNull()?.extractAllLongs() ?: _lines.mapNotNull { it.extractFirstLongOrNull() }
+        longs.show("Long values")
     }
-    val raw: String by lazy { _raw.also { listOf(it).show("Raw") } }
-    val string: String by lazy { _lines.joinToString("").also { listOf(it).show("One string") } }
+    val raw: String by lazy { _raw.also { listOf(it).show("raw string of length ${it.length} with ${it.lineSequence().count() -1} line breaks") } }
+    val string: String by lazy { _lines.joinToString("").also { listOf(it).show("string of length ${it.length}") } }
     val sections: List<PuzzleInput> by lazy { _raw.split(sectionDelimiter).map { PuzzleInput(it) } }
 
     var sectionDelimiter: Regex = """\n\n""".toRegex()
@@ -182,7 +183,7 @@ class PuzzleInput(private val _raw: String) {
             catch({ MapContext(idx).transform(line) }) { raise("Exception on line $idx: $it\n$line") }
         }.getOrElse {
             aocTerminal.danger(it.joinToString("\n")); exitProcess(1)
-        }.show("Mapped")
+        }.show("${_lines.size} mapped elements")
 
     private fun printTitle(title: String) {
         aocTerminal.println(TextStyles.bold("==== $title ${"=".repeat(50 - title.length - 6)}"))
@@ -192,42 +193,24 @@ class PuzzleInput(private val _raw: String) {
         verbose || return this
 
         printTitle("Grid data ($width x $height)")
-        val brightColors =
-            listOf(brightRed, brightMagenta, brightCyan, brightBlue, brightGreen, brightYellow)
-                .asInfiniteSequence().iterator()
-        val contentFreq = area.allPoints().groupingBy { this[it] }.eachCount()
-
-        val isTopoMap = contentFreq.keys.all { it in " .0123456789" }
-        val colors =
-            contentFreq.mapValues { (c, count) ->
-                if (isTopoMap)
-                    if (c in '0'..'9') TextColors.gray(1.0 - (9 - c.digitToInt()) * 0.05) else gray
-                else
-                    when (count) {
-                        1 -> brightColors.next() + TextStyles.bold
-                        contentFreq.values.max() -> gray
-                        else -> null
-                    }
-            }
-
+        val frequencies = frequencies()
+        val colors = autoColoring()
         println(
             "Contains: ${
-                contentFreq.entries.sortedBy { contentFreq[it.key] }
+                frequencies.entries.sortedBy { frequencies[it.key] }
                     .map { (c, count) -> (colors[c]?.invoke("$c") ?: "$c") + ": $count" }
             }"
         )
 
-        println(plot { _, v ->
-            colors[v]?.invoke("$v") ?: "$v"
-        })
+        println(plot(colors = colors))
 
         return this
     }
 
-    private fun <T : List<E>, E : Any?> T.show(type: String, maxLines: Int = 10): T {
+    private fun <T : List<E>, E : Any?> T.show(title: String, maxLines: Int = 10): T {
         verbose || return this
 
-        printTitle(listOfNotNull(type.takeIf { it.isNotEmpty() }, "input data").joinToString(" "))
+        printTitle("${this.size} $title")
         val idxWidth = lastIndex.toString().length
         preview(maxLines) { idx, data ->
             val originalLine = _lines.getOrNull(idx)

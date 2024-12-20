@@ -38,13 +38,13 @@ fun <N> Graph<N>.breadthFirstSearch(start: N, predicate: SolutionPredicate<N>) =
 fun <N> Graph<N>.aStarSearch(start: N, destination: N) =
     AStarSearch(start, neighborsOf = ::neighborsOf, cost = ::cost, costEstimation = ::costEstimation).search(destination)
 
-fun <N> Graph<N>.dijkstraSearch(start: N, destination: N) =
+fun <N> Graph<N>.dijkstraSearch(start: N, destination: N?) =
     Dijkstra(start, ::neighborsOf, ::cost).search(destination)
 
 fun <N> Graph<N>.dijkstraSearch(start: N, destinationPredicate: (N) -> Boolean) =
     Dijkstra(start, ::neighborsOf, ::cost).search(destinationPredicate)
 
-fun <N> Graph<N>.dijkstraSearchAll(start: N, destination: N) =
+fun <N> Graph<N>.dijkstraSearchAll(start: N, destination: N?) =
     Dijkstra(start, ::neighborsOf, ::cost).searchAll(destination)
 
 fun <N> Graph<N>.dijkstraSearchAll(start: N, destinationPredicate: (N) -> Boolean) =

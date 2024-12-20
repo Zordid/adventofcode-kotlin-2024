@@ -24,7 +24,7 @@ dependencies {
 //    implementation("org.jetbrains.kotlinx:multik-core:0.2.3")
 //    implementation("org.jetbrains.kotlinx:multik-default:0.2.3")
 
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.9.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.0")
     implementation("com.github.ajalt.mordant:mordant:3.0.1")
     implementation("guru.nidi:graphviz-kotlin:0.18.1")
     implementation("org.slf4j:slf4j-nop:2.0.16")

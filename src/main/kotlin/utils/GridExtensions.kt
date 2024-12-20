@@ -1,7 +1,9 @@
 package utils
 
 import com.github.ajalt.mordant.rendering.TextColors
+import com.github.ajalt.mordant.rendering.TextColors.*
 import com.github.ajalt.mordant.rendering.TextStyle
+import com.github.ajalt.mordant.rendering.TextStyles
 
 /**
  * An alias for looking at `List<List<T>>` as a [Grid].
@@ -111,7 +113,7 @@ inline fun <T> MutableGrid(
     width: Int,
     height: Int,
     map: Map<Point, T>,
-    crossinline default: (Point) -> T
+    crossinline default: (Point) -> T,
 ): MutableGrid<T> =
     MutableGrid(width, height) { p -> map.getOrElse(p) { default(p) } }
 
@@ -140,6 +142,14 @@ fun <T> Grid<T>.fixed(default: T): Grid<T> {
     return map { row ->
         row.takeIf { row.size == max } ?: List(max) { idx -> if (idx <= row.lastIndex) row[idx] else default }
     }
+}
+
+/**
+ * Checks the given [Grid] for irregularities, i.e. rows that are of different length.
+ */
+fun <T> Grid<T>.requireRegular(): Grid<T> = this.also {
+    val (min, max) = asSequence().map { it.size }.minMaxOrNull() ?: return this
+    require(min == max) { "Grid is NOT regular. Lines ${indices.filter { this[it].size < max }} are too short." }
 }
 
 /**
@@ -214,19 +224,58 @@ fun <T, R> Grid<T>.mapValues(transform: (T) -> R): Grid<R> =
 fun <T, R> Grid<T>.mapValuesIndexed(transform: (Point, T) -> R): Grid<R> =
     mapIndexed { y, r -> r.mapIndexed { x, v -> transform(x to y, v) } }
 
-fun <T> Grid<T>.plot(
+fun <T> Grid<T>.frequencies(): Map<T, Int> = area.allPoints().groupingBy { this[it] }.eachCount()
+
+private val brightColors = listOf(
+    brightRed,
+    brightMagenta,
+    brightCyan,
+    brightBlue,
+    brightGreen,
+    brightYellow
+)
+
+fun <T> Grid<T>.autoColoring(vararg extra: Pair<T, TextStyle>): Map<T, TextStyle?> {
+    val frequencies = frequencies()
+    val multiOccurrences = frequencies.filterValues { it > 1 }
+    val isHeightMap =
+        "0123456789".all {
+            @Suppress("UNCHECKED_CAST")
+            frequencies.keys.contains(it as? T)
+        } && multiOccurrences.all { (it.key as? Char)?.let { it in " .#0123456789" } == true }
+    val colorIterator = brightColors.asInfiniteSequence().iterator()
+    val colors = frequencies.mapValues { (c, count) ->
+        when {
+            isHeightMap -> if (c is Char && c.isDigit()) TextColors.gray(1.0 - (9 - c.digitToInt()) * 0.05) else gray
+            count == 1 -> colorIterator.next() + TextStyles.bold
+            count == frequencies.values.max() -> gray
+            else -> null
+        }
+    }
+    return colors + extra.toMap()
+}
+
+object HoleInGrid
+
+fun <T : Any> Grid<T>.plot(
     area: Area? = this.area,
     reverseX: Boolean = false,
     reverseY: Boolean = false,
     showHeaders: Boolean = true,
-    colors: Map<Char, TextStyle>? = null,
+    colors: Map<T, TextStyle?> = emptyMap(),
     highlight: (Point) -> Boolean = { false },
-    broken: String = (TextColors.white on TextColors.red)("?"),
-    filler: String = " ",
-    transform: (p: Point, value: T) -> Any? = { _, value -> value },
+    broken: TextStyle = (white on red),
+    transform: (p: Point, value: T) -> Any = { _, value -> value },
 ): String =
-    area.plot(reverseX, reverseY, showHeaders, colors, highlight) { point ->
-        transform(point, this[point.y].getOrElse(point.x) { return@plot broken }) ?: filler
+    area.plot(
+        reverseX,
+        reverseY,
+        showHeaders,
+        mapOf<Any, TextStyle?>(HoleInGrid to broken) + colors,
+        highlight
+    ) { point ->
+        val value = this.getOrElse(point) { return@plot HoleInGrid }
+        transform(point, value)
     }
 
 fun highlight(highlight: Collection<Point>, style: TextStyle = TextColors.brightRed): (Point, Any?) -> String =
@@ -254,20 +303,22 @@ fun Iterable<Point>.plot(
     showHeaders: Boolean = true,
     highlight: Collection<Point> = null ?: emptyList(),
     filler: String = " ",
-    paint: (Point) -> String = { "#" }
+    paint: (Point) -> String = { "#" },
 ): String =
     area.plot(reverseX, reverseY, showHeaders, highlight = { it in highlight.toSet() }) { point ->
         if (point in this) paint(point) else filler
     }
 
-inline fun Area?.plot(
+inline fun <T : Any> Area?.plot(
     reverseX: Boolean = false,
     reverseY: Boolean = false,
     showHeaders: Boolean = true,
-    colors: Map<Char, TextStyle>? = null,
+    colors: Map<T, TextStyle?> = emptyMap(),
     crossinline highlight: (Point) -> Boolean = { false },
-    crossinline paint: (Point) -> Any,
+    crossinline transform: (Point) -> T,
 ): String {
+    val headerStyle = TextColors.yellow
+
     val area = this
     if (area == null || area.isEmpty()) return "empty area, no plot"
     val colRange = if (reverseX) area.right downTo area.left else area.left..area.right
@@ -281,15 +332,15 @@ inline fun Area?.plot(
             System.lineSeparator(),
             postfix = System.lineSeparator()
         ) { r ->
-            colRange.joinToString("", prefix = " ".repeat(maxRowWidth)) { col ->
+            headerStyle(colRange.joinToString("", prefix = " ".repeat(maxRowWidth)) { col ->
                 if (col % 5 == 0 || col == colRange.first || col == colRange.last)
-                    TextColors.gray("$col".padStart(maxColWidth)[r].toString())
+                    "$col".padStart(maxColWidth)[r].toString()
                 else " "
-            }
+            })
         }
         colHeader to { r: Int ->
             if (r % 5 == 0 || r == rowRange.first || r == rowRange.last)
-                TextColors.gray("$r ".padStart(maxRowWidth))
+                headerStyle("$r ".padStart(maxRowWidth))
             else emptyRowHeader
         }
     } else {
@@ -298,16 +349,21 @@ inline fun Area?.plot(
     return rowRange.joinToString(System.lineSeparator(), prefix = colPrefix, postfix = System.lineSeparator()) { row ->
         colRange.joinToString("", prefix = rowPrefix(row)) element@{ col ->
             val point = col to row
-            val value = paint(point)
-            val formatted = if (colors != null && value is Char) {
-                colors[value]?.let { it(value.toString()) } ?: value.toString()
-            } else value.toString()
+            val highlight = highlight(point)
+            val value = transform(point)
+            val color = colors[value]?.let {
+                if (highlight) it on white else it
+            }
+            val formatted = if (color != null) color(value.toString()) else value.toString()
             formatted.let {
                 if (highlight(point)) TextColors.red(it) else it
             }
         }
     }
 }
+
+operator fun <T> Grid<T>.get(v: T): Point =
+    requireNotNull(search(v).singleOrNull()) { "Grid does not contain any single value '$v'" }
 
 operator fun <T> Grid<T>.get(p: Point): T =
     if (p.y in indices && p.x in first().indices) this[p.y][p.x]

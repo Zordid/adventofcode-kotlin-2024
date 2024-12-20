@@ -9,12 +9,12 @@ data class SearchResult<N>(val solution: N?, val distance: Map<N, Int>, val prev
     val success: Boolean get() = solution != null
     val distanceToStart: Int? = solution?.let { distance[it] }
     val steps: Int? by lazy { (path.size - 1).takeIf { it >= 0 } }
-    val path by lazy { buildPath() }
+    val path by lazy { pathTo(solution) }
 
-    private fun buildPath(): List<N> {
+    fun pathTo(destination: N?): List<N> {
         val path = ArrayDeque<N>()
-        if (solution in distance) {
-            var nodeFoundThroughPrevious: N? = solution
+        if (destination in distance) {
+            var nodeFoundThroughPrevious: N? = destination
             while (nodeFoundThroughPrevious != null) {
                 path.addFirst(nodeFoundThroughPrevious)
                 nodeFoundThroughPrevious = prev[nodeFoundThroughPrevious]
@@ -23,26 +23,30 @@ data class SearchResult<N>(val solution: N?, val distance: Map<N, Int>, val prev
         return path
     }
 
+    fun distanceTo(destination: N?) = distance[destination]
+
 }
 
 data class MultiSolutionSearchResult<N>(val solutions: Set<N>, val distance: Map<N, Int>, val prev: Map<N, List<N>>) {
     val success: Boolean get() = solutions.isNotEmpty()
     val distanceToStart: Int? = solutions.firstOrNull()?.let { distance[it] }
-    val paths by lazy { findAllShortestPaths() }
+    val paths by lazy { solutions.flatMap { pathsTo(it) } }
 
-    private fun findAllShortestPaths(): List<List<N>> {
-        fun backtrack(current: N, path: List<N> = listOf(current)): List<List<N>> {
-            val prev = prev[current] ?: return listOf(listOf(current) + path.reversed())
-            return buildList {
-                val pathToCurrent = path + current
-                for (predecessor in prev) {
-                    addAll(backtrack(predecessor, pathToCurrent))
-                }
+    private val backTrack = DeepRecursiveFunction<Pair<N, List<N>>, List<List<N>>> { (current, path) ->
+        val prev = prev[current] ?: return@DeepRecursiveFunction listOf(listOf(current) + path.reversed())
+        buildList {
+            val pathToCurrent = path + current
+            for (predecessor in prev) {
+                addAll(callRecursive(predecessor to pathToCurrent))
             }
         }
-        if (solutions.isEmpty()) return emptyList()
-        return solutions.flatMap { backtrack(it) }
     }
+
+    fun pathsTo(destination: N?): List<List<N>> =
+        if (destination != null && destination in distance)
+            backTrack(destination to listOf())
+        else emptyList()
+
 }
 
 class Dijkstra<N>(
@@ -68,7 +72,7 @@ class Dijkstra<N>(
     private val searchStateSingle = SearchStateSingle(startNode)
     private val searchStateMulti = SearchStateMulti(startNode)
 
-    fun search(endNode: N): SearchResult<N> {
+    fun search(endNode: N?): SearchResult<N> {
         with(searchStateSingle) {
             if (endNode in prev) return SearchResult(endNode, dist, prev)
         }
@@ -106,9 +110,9 @@ class Dijkstra<N>(
         return SearchResult(null, dist, prev)
     }
 
-    fun searchAll(endNode: N): MultiSolutionSearchResult<N> {
+    fun searchAll(endNode: N?): MultiSolutionSearchResult<N> {
         with(searchStateMulti) {
-            if (endNode in prev) return MultiSolutionSearchResult(setOf(endNode), dist, prev)
+            if (endNode != null && endNode in prev) return MultiSolutionSearchResult(setOf(endNode), dist, prev)
         }
         return searchAllInternal { it == endNode }
     }
@@ -218,6 +222,69 @@ class AStarSearch<N>(
             val currentNode = openList.extractMin()
             if (currentNode == destinationNode)
                 return SearchResult(destinationNode, dist, prev)
+
+            closedList += currentNode
+            expandNode(currentNode)
+        }
+
+        return SearchResult(null, dist, prev)
+    }
+}
+
+class AStarSearch2<N>(
+    startNodes: Collection<N>,
+    val neighborsOf: (node: N) -> Collection<N>,
+    val cost: (from: N, to: N) -> Int,
+    val costEstimation: (from: N, to: N?) -> Int,
+    val onExpand: (SearchState<N>.(N) -> Unit)? = null,
+) {
+    constructor(
+        startNode: N,
+        neighborsOf: (node: N) -> Collection<N>,
+        cost: (from: N, to: N) -> Int,
+        costEstimation: (from: N, to: N?) -> Int,
+        onExpand: (SearchState<N>.(N) -> Unit)? = null,
+    ) : this(listOf(startNode), neighborsOf, cost, costEstimation, onExpand)
+
+    private val dist = HashMap<N, Int>(startNodes.associateWith { 0 })
+    private val prev = HashMap<N, N>()
+    private val openList = minPriorityQueueOf(startNodes.map { it to 0 })
+    private val closedList = HashSet<N>()
+
+    val state = object : SearchState<N> {
+        override val next get() = openList.peekOrNull()
+        override val dist get() = this@AStarSearch2.dist
+        override val prev get() = this@AStarSearch2.prev
+    }
+
+    fun search(destinationPredicate: (N) -> Boolean, limitSteps: Int? = null): SearchResult<N> {
+
+        fun expandNode(currentNode: N) {
+            onExpand?.invoke(state, currentNode)
+            for (successor in neighborsOf(currentNode)) {
+                if (successor in closedList)
+                    continue
+
+                val tentativeDist = dist[currentNode]!! + cost(currentNode, successor)
+                if (successor in openList && tentativeDist >= dist[successor]!!)
+                    continue
+
+                prev[successor] = currentNode
+                dist[successor] = tentativeDist
+
+                val f = tentativeDist + costEstimation(successor, null)
+                openList.insertOrUpdate(successor, f)
+            }
+        }
+
+//        if (destinationNode in closedList)
+//            return SearchResult(destinationNode, dist, prev)
+
+        var steps = 0
+        while (steps++ != limitSteps && openList.isNotEmpty()) {
+            val currentNode = openList.extractMin()
+            if (destinationPredicate(currentNode))
+                return SearchResult(currentNode, dist, prev)
 
             closedList += currentNode
             expandNode(currentNode)
