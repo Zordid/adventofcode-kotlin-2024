@@ -149,4 +149,19 @@ class GridExtensionsTest : FunSpec({
         )
     }
 
+    context("exploding") {
+        test("works") {
+            val grid = """
+                123
+                456
+                789
+            """.trimIndent().toGrid()
+
+            val exploded = grid.explode()
+            println(exploded.plot())
+
+            println(grid.explode('*').plot())
+        }
+    }
+
 })

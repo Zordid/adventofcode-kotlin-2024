@@ -3,6 +3,7 @@ import com.github.ajalt.mordant.rendering.TextColors
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import utils.*
+import kotlin.math.absoluteValue
 
 class Day20 : Day(20, 2024, "Race Condition") {
 
@@ -32,20 +33,15 @@ class Day20 : Day(20, 2024, "Race Condition") {
                 if (c == '.' && point in honestPath) 'O' else c
             }
         }
-        log { "Searching for cheat starts that cut at least $saveThreshold picoseconds."}
+        log { "Searching for cheat starts that cut at least $saveThreshold picoseconds." }
         return runBlocking(Dispatchers.Default) {
             honestPath.parMap(concurrency = 10) { cheatHere ->
-                val alreadySpent = distance[cheatHere]!!
-
-                // where can we end up from this cheat start point?
-                val reachableEndPoints = cheatHere.vicinity(allowedCheatLength).filter {
-                    (cheatHere manhattanDistanceTo it <= allowedCheatLength) && trackMap.getOrDefault(it, '#') != '#'
-                }
-
-                reachableEndPoints.count { cheatEnd ->
+                val cheatStartCost = distance[cheatHere]!!
+                cheatHere.vicinityByManhattan(allowedCheatLength).count { cheatEnd ->
+                    val cheatEndCost = distance[cheatEnd] ?: return@count false
                     val cheatLength = cheatEnd manhattanDistanceTo cheatHere
-                    val saved = distance[cheatEnd]!! - (alreadySpent + cheatLength)
-                    saved >= saveThreshold
+                    val normalLength = cheatEndCost - cheatStartCost
+                    (normalLength - cheatLength) >= saveThreshold
                 }
             }.sum()
         }
@@ -60,6 +56,15 @@ fun Point.vicinity(size: Int): Sequence<Point> = sequence {
     for (y in this@vicinity.y - size..this@vicinity.y + size)
         for (x in this@vicinity.x - size..this@vicinity.x + size)
             yield(x to y)
+}
+
+fun Point.vicinityByManhattan(size: Int): Sequence<Point> = sequence {
+    for (dy in -size..+size) {
+        val width = (size - dy.absoluteValue)
+        for (x in x - width..x + width) {
+            yield(x to y + dy)
+        }
+    }
 }
 
 fun main() {

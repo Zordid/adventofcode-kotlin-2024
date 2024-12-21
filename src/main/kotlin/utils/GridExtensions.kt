@@ -303,3 +303,10 @@ private fun Grid<*>.notInGridError(p: Point): Nothing =
 
 private fun List<String>.notInListGridError(p: Point): Nothing =
     error("Point $p not in grid of dimensions ${firstOrNull()?.length ?: 0} x $size")
+
+fun <T : Any> Grid<T>.explode(filler: T? = null): Grid<T> =
+    MutableGrid(area.scale(3)) { p ->
+        val sourcePoint = p / 3
+        if (filler == null) this@explode[sourcePoint]
+        else if (sourcePoint * 3 + (1 to 1) == p) this@explode[sourcePoint] else filler
+    }
