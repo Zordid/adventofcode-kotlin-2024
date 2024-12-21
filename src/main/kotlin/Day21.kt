@@ -38,6 +38,8 @@ class Day21 : Day(21, 2024, "Keypad Conundrum") {
             val codeNum = code.extractFirstInt()
             alog { "$code: $codeNum * ${t} | $t" }
             t.toLong() * codeNum
+        }.also {
+            alog { cache.entries.filter{ it.key.third==0}. joinToString("\n")}
         }
     }
 
