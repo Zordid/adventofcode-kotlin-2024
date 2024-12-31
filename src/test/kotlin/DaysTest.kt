@@ -26,6 +26,7 @@ class DaysTest {
         test<Day20>(1317, 982474)
         test<Day21>(219366, 271631192020464)
         test<Day22>(20068964552, 2246)
+        test<Day23>(1327, "df,kg,la,mp,pb,qh,sk,th,vn,ww,xp,yp,zk")
     }
 
 }

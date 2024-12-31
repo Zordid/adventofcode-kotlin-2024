@@ -1,3 +1,7 @@
+import arrow.fx.coroutines.parMap
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.runBlocking
+
 class Day22 : Day(22, 2024, "Monkey Market") {
 
     val initialSecrets = input.map { it.extractFirstLong() }
@@ -7,44 +11,37 @@ class Day22 : Day(22, 2024, "Monkey Market") {
             it.pseudoRandSequence().drop(2000).first()
         }
 
-    override fun part2(): Int {
+    override fun part2(): Int = runBlocking(Dispatchers.Default) {
         val sequences = initialSecrets.map {
             it.pseudoRandSequence()
-                .map { (it - (it / 10) * 10).toInt() }
+                .map { (it % 10).toInt() }
                 .zipWithNext()
                 .map { (a, b) -> b to b - a }
                 .take(2000)
         }
 
-        val allSignatures = mutableSetOf<List<Int>>()
-        val signatures = sequences.map {
+        val signatures = sequences.parMap {
             val stats = buildMap<List<Int>, Int> {
-                it.windowed(4).forEach { window ->
-                    val key = window.map { it.second }
-                    val price = window.last().first
+                it.windowed(4) { window ->
+                    window.map { it.second } to window.last().first
+                }.forEach { (key, price) ->
                     if (key !in this) {
                         this[key] = price
-                        allSignatures += key
                     }
                 }
             }
             stats
         }
+        val allSignatures = signatures.flatMapTo(mutableSetOf()) { it.keys }
 
         alog { "There are ${allSignatures.size} unique signatures in ${signatures.size} buyers" }
-
-        return allSignatures.maxOf { key ->
+        allSignatures.parMap { key ->
             signatures.sumOf { it[key] ?: 0 }
-        }
+        }.max()
     }
 
-    fun Long.pseudoRandSequence() = sequence {
-        var secret = this@pseudoRandSequence
-        while (true) {
-            yield(secret)
-            secret = secret.nextSecret()
-        }
-    }
+    fun Long.pseudoRandSequence(): Sequence<Long> =
+        generateSequence(this) { secret -> secret.nextSecret() }
 
     fun Long.nextSecret(): Long {
         // step 1

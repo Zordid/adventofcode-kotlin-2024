@@ -177,7 +177,7 @@ class Day21 : Day(21, 2024, "Keypad Conundrum") {
                     }
                 }
             }
-            println(shortestPaths)
+           //  println(shortestPaths)
         }
     }
 

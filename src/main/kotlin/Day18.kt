@@ -8,7 +8,7 @@ class Day18 : Day(18, 2024, "RAM Run") {
     val end = dim to dim
     val area = origin areaTo end
 
-    inner class RAM(val fallen: Set<Point>) : Graph<Point> {
+    inner class RAM(val fallen: Set<Point>) : GraphWithCostEstimation<Point> {
         override fun neighborsOf(node: Point) =
             node.directNeighbors(area).filter { it !in fallen }
 

@@ -604,7 +604,7 @@ object AoC {
 @JvmInline
 value class Event(val year: Int) {
     init {
-        require(year in 2015..2050) { "Invalid year $year" }
+        require(year >= 2015) { "Invalid year $year" }
     }
 
     override fun toString() = "$year"

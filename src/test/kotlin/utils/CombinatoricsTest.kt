@@ -4,11 +4,11 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.longs.shouldBeExactly
+import io.kotest.matchers.shouldBe
 import io.kotest.property.Arb
 import io.kotest.property.arbitrary.arbitrary
-import io.kotest.property.arbitrary.filter
 import io.kotest.property.arbitrary.int
-import io.kotest.property.arbitrary.positiveInt
+import io.kotest.property.arbitrary.next
 import io.kotest.property.checkAll
 
 class CombinatoricsTest : FunSpec({
@@ -16,26 +16,20 @@ class CombinatoricsTest : FunSpec({
     context("choose function") {
         test("anything choose 0 has 1 solution") {
             checkAll(Arb.int(0..Int.MAX_VALUE)) { n ->
-                println(n)
                 n choose 0 shouldBeExactly 1
             }
         }
 
         test("anything choose (more) has 0 solution") {
             checkAll(Arb.int(0..1000000), Arb.int(1..10)) { n, delta ->
-                println(n)
                 n choose (n + delta) shouldBeExactly 0
             }
         }
 
         test("symmetry test") {
-            val nKArb = arbitrary {
-                val n = Arb.int(0..1_000_000).bind()
-                val k = Arb.int(0..1_000_000).filter { it <= n }.bind()
-                n to k
-            }
-            checkAll(nKArb) { (n, k)->
-                n choose k shouldBeExactly (n choose (n-k))
+            val nKArb = Arb.nk()
+            checkAll(nKArb) { (n, k) ->
+                n choose k shouldBeExactly (n choose (n - k))
             }
         }
 
@@ -44,7 +38,6 @@ class CombinatoricsTest : FunSpec({
             5 choose 2 shouldBeExactly 10
         }
     }
-
 
     test("simple combinations of 2 elements") {
         "a".combinations(2).toList().shouldBeEmpty()
@@ -67,6 +60,10 @@ class CombinatoricsTest : FunSpec({
                     "bd",
                     "cd",
                 )
+        "abcd".combinations(3).toList() shouldContainExactlyInAnyOrder
+                listOf("abc", "abd", "acd", "bcd")
+        "abcde".combinations(4).toList() shouldContainExactlyInAnyOrder
+                listOf("abcd", "abce", "abde", "acde", "bcde")
     }
 
     test("simple combinations of IntRanges") {
@@ -136,4 +133,30 @@ class CombinatoricsTest : FunSpec({
                 )
     }
 
+    test("ListWithExcluded") {
+        checkAll(Arb.nk(0..100)) { (n, k) ->
+            val backing = List(n) { it }
+            val exclude = List(k) { Arb.int(backing.indices).next() }.toSet()
+            val expected = buildList {
+                backing.indices.forEach { idx -> if (idx !in exclude) add(backing[idx]) }
+            }
+            val actual = backing.withRemoved(exclude)
+            actual shouldBe expected
+            actual.asSequence().toList() shouldBe expected
+            actual.listIterator()
+        }
+    }
+
 })
+
+private fun Arb.Companion.nk(nRange: IntRange = 0..1_000_000): Arb<Pair<Int, Int>> = arbitrary {
+    val n = Arb.int(nRange).bind()
+    val k = Arb.int(0..n).bind()
+    n to k
+}
+
+fun main() {
+    val b = listOf(1, 2, 3, 4, 5)
+    val h = b.withRemoved(setOf(1, 3))
+    println(h[4])
+}
